@@ -327,4 +327,124 @@ describe("Admin route behavior", () => {
     expect(deletePreAuthKey).toHaveBeenCalledWith("21");
     expect(result).toMatchObject({ type: "DataWithResponseInit" });
   });
+
+  test("machine tag updates auto-add missing acl tags for the machine owner", async () => {
+    const { machineAction } = await import("~/routes/machines/machine-actions");
+    const principal = createPrincipal();
+    const getNode = vi.fn().mockResolvedValue({
+      id: "node-1",
+      user: { id: "hs-user-1", name: "admin@" },
+      approvedRoutes: [],
+    });
+    const getPolicy = vi.fn().mockResolvedValue({
+      policy: JSON.stringify({
+        tagOwners: {
+          "tag:existing": ["admin@"],
+        },
+      }),
+      updatedAt: new Date(),
+    });
+    const setPolicy = vi.fn().mockResolvedValue(undefined);
+    const setNodeTags = vi.fn().mockResolvedValue(undefined);
+
+    const result = await machineAction({
+      request: makeRequest({
+        action_id: "update_tags",
+        node_id: "node-1",
+        tags: "tag:existing,tag:new",
+      }),
+      context: {
+        auth: {
+          require: vi.fn().mockResolvedValue(principal),
+          can: vi.fn((_, cap) => cap === Capabilities.write_policy),
+          canManageNode: vi.fn().mockReturnValue(true),
+          getHeadscaleApiKey: vi.fn().mockReturnValue("api-key"),
+        },
+        oidc: { apiKey: "api-key" },
+        hsApi: {
+          getRuntimeClient: vi.fn().mockReturnValue({
+            getNode,
+            getPolicy,
+            setNodeTags,
+            setPolicy,
+          }),
+        },
+      },
+      params: {},
+    } as any);
+
+    expect(setPolicy).toHaveBeenCalledOnce();
+    expect(String(setPolicy.mock.calls[0][0])).toContain('"tag:new"');
+    expect(String(setPolicy.mock.calls[0][0])).toContain('"admin@"');
+    expect(setNodeTags).toHaveBeenCalledWith("node-1", ["tag:existing", "tag:new"]);
+    expect(result).toMatchObject({ success: true, message: "Tags updated" });
+  });
+
+  test("user rename updates acl references before renaming the user", async () => {
+    const { userAction } = await import("~/routes/users/user-actions");
+    const principal = createPrincipal();
+    const renameUser = vi.fn().mockResolvedValue(undefined);
+    const setPolicy = vi.fn().mockResolvedValue(undefined);
+    const getUsers = vi.fn().mockResolvedValue([
+      {
+        id: "user-1",
+        name: "edward",
+        provider: "local",
+      },
+    ]);
+    const getPolicy = vi.fn().mockResolvedValue({
+      policy: JSON.stringify({
+        groups: {
+          "group:admins": ["edward"],
+        },
+        acls: [
+          {
+            action: "accept",
+            src: ["edward"],
+            dst: ["tag:prod:*", "edward:22"],
+          },
+        ],
+        tests: [
+          {
+            src: "edward",
+            accept: ["edward:443"],
+          },
+        ],
+      }),
+      updatedAt: new Date(),
+    });
+
+    const result = await userAction({
+      request: makeRequest({
+        action_id: "rename_user",
+        user_id: "user-1",
+        new_name: "edward-renamed",
+      }),
+      context: {
+        auth: {
+          require: vi.fn().mockResolvedValue(principal),
+          can: vi.fn(
+            (_, cap) => cap === Capabilities.write_users || cap === Capabilities.write_policy,
+          ),
+          getHeadscaleApiKey: vi.fn().mockReturnValue("api-key"),
+        },
+        oidc: { apiKey: "api-key" },
+        hsApi: {
+          getRuntimeClient: vi.fn().mockReturnValue({
+            getPolicy,
+            getUsers,
+            renameUser,
+            setPolicy,
+          }),
+        },
+      },
+      params: {},
+    } as any);
+
+    expect(setPolicy).toHaveBeenCalledOnce();
+    expect(String(setPolicy.mock.calls[0][0])).toContain('"edward-renamed"');
+    expect(String(setPolicy.mock.calls[0][0])).not.toContain('"edward"');
+    expect(renameUser).toHaveBeenCalledWith("user-1", "edward-renamed");
+    expect(result).toMatchObject({ message: "User renamed successfully" });
+  });
 });

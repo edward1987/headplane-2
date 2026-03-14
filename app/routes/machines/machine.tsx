@@ -14,6 +14,7 @@ import { mapNodes, sortNodeTags } from "~/utils/node-info";
 import { getUserDisplayName } from "~/utils/user";
 
 import type { Route } from "./+types/machine";
+import { getAclTagsFromPolicy } from "./acl-tags";
 import { mapTagsToComponents, uiTagsForNode } from "./components/machine-row";
 import MenuOptions from "./components/menu";
 import Routes from "./dialogs/routes";
@@ -37,7 +38,11 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const api = context.hsApi.getRuntimeClient(
     context.auth.getHeadscaleApiKey(principal, context.oidc?.apiKey),
   );
-  const [nodes, users] = await Promise.all([api.getNodes(), api.getUsers()]);
+  const [nodes, users, policyResult] = await Promise.all([
+    api.getNodes(),
+    api.getUsers(),
+    api.getPolicy().catch(() => ({ policy: "", updatedAt: null })),
+  ]);
   const node = nodes.find((entry) => entry.id === params.id);
   if (!node) {
     throw data("Machine not found", { status: 404 });
@@ -50,7 +55,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   return {
     agent: context.agents?.agentID(),
-    existingTags: sortNodeTags(nodes),
+    existingTags: Array.from(
+      new Set([...sortNodeTags(nodes), ...getAclTagsFromPolicy(policyResult.policy)]),
+    ).sort(),
     magic,
     node: enhancedNode,
     stats: lookup?.[enhancedNode.nodeKey],

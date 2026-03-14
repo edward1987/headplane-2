@@ -3,8 +3,84 @@ import { data } from "react-router";
 import { getOidcSubject } from "~/server/web/headscale-identity";
 import { Capabilities } from "~/server/web/roles";
 import type { Role } from "~/server/web/roles";
+import { parseAclPolicy, serializeAclPolicy } from "~/utils/acl-parser";
 
 import type { Route } from "./+types/overview";
+
+function rewriteAclReference(value: string, oldName: string, newName: string) {
+  const trimmed = value.trim();
+  if (trimmed === oldName) {
+    return newName;
+  }
+
+  if (trimmed.startsWith(`${oldName}:`)) {
+    return `${newName}${trimmed.slice(oldName.length)}`;
+  }
+
+  return value;
+}
+
+function rewriteAclPolicyUserReferences(policy: string, oldName: string, newName: string) {
+  const parsed = parseAclPolicy(policy);
+
+  parsed.groups = parsed.groups.map((group) => ({
+    ...group,
+    users: group.users.map((value) => rewriteAclReference(value, oldName, newName)),
+  }));
+
+  parsed.tagOwners = parsed.tagOwners.map((tagOwner) => ({
+    ...tagOwner,
+    owners: tagOwner.owners.map((value) => rewriteAclReference(value, oldName, newName)),
+  }));
+
+  parsed.acls = parsed.acls.map((rule) => ({
+    ...rule,
+    dst: rule.dst.map((value) => rewriteAclReference(value, oldName, newName)),
+    src: rule.src.map((value) => rewriteAclReference(value, oldName, newName)),
+  }));
+
+  parsed.ssh = parsed.ssh.map((rule) => ({
+    ...rule,
+    dst: rule.dst.map((value) => rewriteAclReference(value, oldName, newName)),
+    src: rule.src.map((value) => rewriteAclReference(value, oldName, newName)),
+    users: rule.users?.map((value) => rewriteAclReference(value, oldName, newName)),
+  }));
+
+  parsed.tests = parsed.tests.map((test) => ({
+    ...test,
+    accept: test.accept.map((value) => rewriteAclReference(value, oldName, newName)),
+    deny: test.deny.map((value) => rewriteAclReference(value, oldName, newName)),
+    src: rewriteAclReference(test.src, oldName, newName),
+  }));
+
+  parsed.nodeAttrs = parsed.nodeAttrs.map((entry) => ({
+    ...entry,
+    target: entry.target.map((value) => rewriteAclReference(value, oldName, newName)),
+  }));
+
+  parsed.autoApprovers = Object.fromEntries(
+    Object.entries(parsed.autoApprovers).map(([section, value]) => {
+      if (!value || typeof value !== "object") {
+        return [section, value];
+      }
+
+      return [
+        section,
+        Object.fromEntries(
+          Object.entries(value).map(([key, items]) => {
+            const nextKey = rewriteAclReference(key, oldName, newName);
+            const nextItems = Array.isArray(items)
+              ? items.map((item) => rewriteAclReference(item, oldName, newName))
+              : items;
+            return [nextKey, nextItems];
+          }),
+        ),
+      ];
+    }),
+  );
+
+  return serializeAclPolicy(parsed);
+}
 
 export async function userAction({ request, context }: Route.ActionArgs) {
   const principal = await context.auth.require(request);
@@ -69,6 +145,20 @@ export async function userAction({ request, context }: Route.ActionArgs) {
         throw data("Users managed by OIDC cannot be renamed", {
           status: 403,
         });
+      }
+
+      if (context.auth.can(principal, Capabilities.write_policy)) {
+        const policyResult = await api.getPolicy().catch(() => null);
+        if (policyResult) {
+          const nextPolicy = rewriteAclPolicyUserReferences(
+            policyResult.policy,
+            user.name,
+            newName,
+          );
+          if (nextPolicy !== policyResult.policy) {
+            await api.setPolicy(nextPolicy);
+          }
+        }
       }
 
       await api.renameUser(userId, newName);

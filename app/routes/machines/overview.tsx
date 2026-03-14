@@ -11,6 +11,7 @@ import cn from "~/utils/cn";
 import { mapNodes, sortNodeTags } from "~/utils/node-info";
 
 import type { Route } from "./+types/overview";
+import { getAclTagsFromPolicy } from "./acl-tags";
 import MachineRow from "./components/machine-row";
 import NewMachine from "./dialogs/new";
 import { machineAction } from "./machine-actions";
@@ -29,7 +30,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const api = context.hsApi.getRuntimeClient(
     context.auth.getHeadscaleApiKey(principal, context.oidc?.apiKey),
   );
-  const [nodes, users] = await Promise.all([api.getNodes(), api.getUsers()]);
+  const [nodes, users, policyResult] = await Promise.all([
+    api.getNodes(),
+    api.getUsers(),
+    api.getPolicy().catch(() => ({ policy: "", updatedAt: null })),
+  ]);
 
   let magic: string | undefined;
   if (context.hs.readable() && context.hs.c?.dns.magic_dns) {
@@ -42,6 +47,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   return {
     agent: context.agents?.agentID(),
+    aclTags: getAclTagsFromPolicy(policyResult.policy),
     headscaleUserId: principal.kind === "oidc" ? principal.user.headscaleUserId : undefined,
     magic,
     nodes,
@@ -413,7 +419,9 @@ export default function Page({ loaderData }: Route.ComponentProps) {
               ) : (
                 filteredAndSortedNodes.map((node) => (
                   <MachineRow
-                    existingTags={sortNodeTags(loaderData.nodes)}
+                    existingTags={Array.from(
+                      new Set([...sortNodeTags(loaderData.nodes), ...loaderData.aclTags]),
+                    ).sort()}
                     isAgent={loaderData.agent ? loaderData.agent === node.nodeKey : undefined}
                     isDisabled={
                       loaderData.writable ? false : node.user?.id !== loaderData.headscaleUserId

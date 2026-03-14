@@ -135,8 +135,8 @@ export default function Tags({ machine, isOpen, setIsOpen, existingTags }: TagsP
           </Button>
         </div>
         <p className="mt-2 text-sm opacity-50">
-          Not seeing the tags you expect? Tags need to be defined in your access control policy
-          before they can be assigned to machines.
+          Existing ACL tags are suggested here. If you create a brand-new tag, Headplane will try to
+          add it to the ACL policy for this machine owner before assigning it.
         </p>
       </Dialog.Panel>
     </Dialog>

@@ -2,6 +2,7 @@ import { data, redirect } from "react-router";
 
 import { isDataWithApiError } from "~/server/headscale/api/error-client";
 import { Capabilities } from "~/server/web/roles";
+import { normalizeTagName, parseAclPolicy, serializeAclPolicy } from "~/utils/acl-parser";
 
 import type { Route } from "./+types/machine";
 
@@ -99,11 +100,35 @@ export async function machineAction({ request, context }: Route.ActionArgs) {
         });
       }
 
+      const normalizedTags = tags
+        .map((tag) => normalizeTagName(tag.trim()))
+        .filter((tag) => tag !== "");
+
+      if (context.auth.can(principal, Capabilities.write_policy) && node.user?.name) {
+        const policyResult = await api.getPolicy().catch(() => null);
+        if (policyResult) {
+          const parsed = parseAclPolicy(policyResult.policy);
+          const knownTags = new Set(
+            parsed.tagOwners.map((tagOwner) => normalizeTagName(tagOwner.tag)).filter(Boolean),
+          );
+          const missingTags = normalizedTags.filter((tag) => !knownTags.has(tag));
+
+          if (missingTags.length > 0) {
+            parsed.tagOwners = [
+              ...parsed.tagOwners,
+              ...missingTags.map((tag) => ({
+                owners: [node.user!.name],
+                tag,
+              })),
+            ];
+
+            await api.setPolicy(serializeAclPolicy(parsed));
+          }
+        }
+      }
+
       try {
-        await api.setNodeTags(
-          nodeId,
-          tags.map((tag) => tag.trim()).filter((tag) => tag !== ""),
-        );
+        await api.setNodeTags(nodeId, normalizedTags);
 
         return { success: true as const, message: "Tags updated" };
       } catch (error) {
@@ -111,8 +136,9 @@ export async function machineAction({ request, context }: Route.ActionArgs) {
           return data(
             {
               success: false as const,
-              error:
-                "One or more tags are not defined in your ACL policy. Please add them to your policy before assigning them to a machine.",
+              error: context.auth.can(principal, Capabilities.write_policy)
+                ? "One or more tags could not be added to the ACL policy for this machine owner. Check that the ACL policy is writable and that the machine has an owner."
+                : "One or more tags are not defined in your ACL policy, and you do not have permission to update the policy automatically.",
             },
             { status: 400 },
           );
