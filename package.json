@@ -113,8 +113,13 @@
     "onlyBuiltDependencies": [
       "@tailwindcss/oxide",
       "better-sqlite3",
+      "bufferutil",
+      "cpu-features",
       "esbuild",
-      "lefthook"
+      "lefthook",
+      "protobufjs",
+      "ssh2",
+      "utf-8-validate"
     ],
     "patchedDependencies": {
       "react-router-hono-server": "patches/react-router-hono-server.patch"
