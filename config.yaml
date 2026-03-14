@@ -7,7 +7,7 @@ server:
   # The base URL for Headplane. Please keep in mind that this will be required
   # for Headscale to properly function going forward AND it should not include
   # the dashboard prefix (/admin) portion.
-  base_url: "http://localhost:3000"
+  base_url: "https://3000--main--headplane--edward.c.pdev.ro"
 
   # The secret used to encode and decode web sessions (must be 32 characters)
   # You may also provide `cookie_secret_path` instead to read a value from disk.
@@ -33,7 +33,7 @@ server:
   #
   # Data formats prior to 0.6.1 will automatically be migrated.
   # PLEASE ensure this directory is mounted if running in Docker.
-  data_path: "/var/lib/headplane"
+  data_path: "./data"
 
   # The info secret is optional and allows access to certain debug endpoints
   # that may expose sensitive information about your Headplane instance.
@@ -68,7 +68,7 @@ headscale:
   # This is optional, but HIGHLY recommended for the best experience
   # If this is read only, Headplane will show your configuration settings
   # in the Web UI, but they cannot be changed.
-  config_path: "/etc/headscale/config.yaml"
+  # config_path: "./config.yaml"
 
   # Whether the Headscale configuration should be strictly validated
   # when reading from `config_path`. If true, Headplane will not interact
@@ -96,11 +96,11 @@ integration:
   # You will see the Headplane agent in your Tailnet as a node when
   # it connects.
   agent:
-    enabled: false
+    enabled: true
 
     # To connect to your Tailnet, you need to generate a pre-auth key
     # This can be done via the web UI or through the `headscale` CLI.
-    pre_authkey: "<your-preauth-key>"
+    pre_authkey: "UpWMgqw.8ayGbalyIpsPLAeRP2_dipY4tRPhPM0I"
 
     # Optionally change the name of the agent in the Tailnet.
     # host_name: "headplane-agent"

@@ -1,4 +1,5 @@
 import { CircleUser } from "lucide-react";
+import { Link } from "react-router";
 
 import StatusCircle from "~/components/StatusCircle";
 import { Machine, User } from "~/types";
@@ -34,7 +35,9 @@ export default function UserRow({ user, role, headscaleUsers, currentLink }: Use
             <CircleUser className="h-10 w-10" />
           )}
           <div className="ml-4">
-            <p className={cn("font-semibold leading-snug")}>{user.name || user.displayName}</p>
+            <Link className={cn("font-semibold leading-snug hover:underline")} to={`/users/${user.id}`}>
+              {user.name || user.displayName}
+            </Link>
             <p className="text-sm opacity-50">{user.email}</p>
           </div>
         </div>

@@ -46,6 +46,7 @@ export default defineConfig(({ command, isSsrBuild }) => ({
   server: {
     host: server.host,
     port: server.port,
+    allowedHosts: ["3000--main--headplane--edward.c.pdev.ro"],
   },
   build: {
     target: "esnext",

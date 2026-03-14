@@ -1,4 +1,3 @@
-import type { Key } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
@@ -47,7 +46,7 @@ export default function AddAuthKey({
   const [tagOnly, setTagOnly] = useState(false);
   const currentUser = selfServiceOnly ? findCurrentUser(users, currentSubject) : null;
   const availableUsers = selfServiceOnly && currentUser ? [currentUser] : users;
-  const [userId, setUserId] = useState<Key | null>(availableUsers[0]?.id);
+  const [userId, setUserId] = useState<string | null>(availableUsers[0]?.id ?? null);
   const [tags, setTags] = useState("");
 
   const createdKey = fetcher.data?.success ? fetcher.data.key : null;
@@ -158,7 +157,7 @@ export default function AddAuthKey({
               isDisabled={selfServiceOnly}
               isRequired
               label="User"
-              onSelectionChange={(value) => setUserId(value)}
+              onSelectionChange={(value) => setUserId(value?.toString() ?? null)}
               placeholder="Select a user"
               selectedKey={userId}
             >

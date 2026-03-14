@@ -5,10 +5,12 @@ import type { OpenAPIV2 } from 'openapi-types';
 import { data } from 'react-router';
 import { Agent, type Dispatcher, request } from 'undici';
 import log from '~/utils/log';
+import type { ApiFeatureFlags } from '~/types';
 import endpointSets, { RuntimeApiClient } from './endpoints';
 import { undiciToFriendlyError } from './error';
 import { HeadscaleAPIError, isApiError } from './error-client';
 import { detectApiVersion, isAtLeast, type Version } from './version';
+import { getApiFeatureFlags } from '../features';
 
 /**
  * A low-level composed interface for interacting with the Headscale API.
@@ -39,6 +41,11 @@ export interface HeadscaleApiInterface {
 	 * The detected API version of the connected Headscale instance.
 	 */
 	apiVersion: Version;
+
+	/**
+	 * Normalized capabilities inferred from the detected API version.
+	 */
+	featureFlags: ApiFeatureFlags;
 
 	/**
 	 * Retrieves a runtime API client for the given API key.
@@ -111,6 +118,7 @@ export async function createHeadscaleInterface(
 	const undiciAgent = await createUndiciAgent(certPath);
 	let openapiHashes: Record<string, string> | null = null;
 	let apiVersion: Version;
+	let featureFlags: ApiFeatureFlags;
 
 	const rawFetch = async (
 		url: string,
@@ -253,12 +261,14 @@ export async function createHeadscaleInterface(
 
 	openapiHashes = await fetchAndHashOpenapi();
 	apiVersion = detectApiVersion(openapiHashes);
+	featureFlags = getApiFeatureFlags(apiVersion);
 
 	setInterval(async () => {
 		const hashes = await fetchAndHashOpenapi();
 		if (hashes) {
 			openapiHashes = hashes;
 			apiVersion = detectApiVersion(openapiHashes);
+			featureFlags = getApiFeatureFlags(apiVersion);
 		}
 	}, 60_000); // every 60 seconds
 
@@ -267,6 +277,7 @@ export async function createHeadscaleInterface(
 		baseUrl,
 		openapiHashes,
 		apiVersion,
+		featureFlags,
 		getRuntimeClient: (apiKey: string) =>
 			endpointSets(
 				{

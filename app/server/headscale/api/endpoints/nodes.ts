@@ -1,4 +1,4 @@
-import type { Machine } from "~/types";
+import type { DebugCreateNodeInput, Machine, NodeRouteDetail } from "~/types";
 
 import type { HeadscaleApiInterface } from "..";
 
@@ -98,6 +98,12 @@ export interface NodeEndpoints {
    * @param user The user to set for the node.
    */
   setNodeUser(id: string, user: string): Promise<void>;
+
+  getNodeRoutes(id: string): Promise<NodeRouteDetail[]>;
+
+  setNodeRoutes(id: string, routes: string[]): Promise<NodeRouteDetail[]>;
+
+  debugCreateNode(input: DebugCreateNodeInput): Promise<Machine>;
 }
 
 export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
@@ -164,5 +170,48 @@ export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
     await client.apiFetch<void>("POST", `v1/node/${nodeId}/user`, apiKey, {
       user,
     });
+  },
+
+  getNodeRoutes: async (nodeId) => {
+    const { routes } = await client.apiFetch<{ routes: NodeRouteDetail[] }>(
+      "GET",
+      `v1/machine/${nodeId}/routes`,
+      apiKey,
+    );
+
+    return routes;
+  },
+
+  setNodeRoutes: async (nodeId, routes) => {
+    const { routes: nextRoutes } = await client.apiFetch<{ routes: NodeRouteDetail[] }>(
+      "POST",
+      `v1/machine/${nodeId}/routes`,
+      apiKey,
+      { routes },
+    );
+
+    return nextRoutes;
+  },
+
+  debugCreateNode: async (input) => {
+    const body: Record<string, unknown> = {
+      key: input.key,
+      name: input.name,
+      routes: input.routes,
+    };
+
+    if (input.user) {
+      body.user = input.user;
+      body.namespace = input.user;
+    }
+
+    const { machine, node } = await client.apiFetch<{ machine?: RawMachine; node?: RawMachine }>(
+      "POST",
+      "v1/debug/machine",
+      apiKey,
+      body,
+    );
+
+    return normalizeTags(client, machine ?? node!);
   },
 }));

@@ -39,7 +39,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   const stats = await context.agents?.lookup(nodes.map((node) => node.nodeKey));
   const populatedNodes = mapNodes(nodes, stats);
-  const supportsNodeOwnerChange = !context.hsApi.clientHelpers.isAtleast("0.28.0-beta.1");
+  const supportsNodeOwnerChange = !context.hsApi.clientHelpers.isAtleast("0.28.0");
 
   return {
     agent: context.agents?.agentID(),
@@ -81,7 +81,7 @@ export default function Page({ loaderData }: Route.ComponentProps) {
       return false;
     });
 
-    nodes = [...nodes].toSorted((a, b) => {
+    nodes = [...nodes].sort((a: (typeof loaderData.populatedNodes)[number], b: (typeof loaderData.populatedNodes)[number]) => {
       let comparison = 0;
 
       switch (sortField) {

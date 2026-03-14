@@ -31,5 +31,7 @@ features:
   - title: "Configure Headscale Settings"
     details: "Manage settings hidden behind Headscale configuration such as DNS, networking, auth controls, etc."
     icon: "📝"
+  - title: "Full Admin Console"
+    details: "Use the overview, keys, advanced debug tools, and system status pages to operate Headscale from one interface."
+    icon: "🛠️"
 ---
-

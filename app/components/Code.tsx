@@ -31,7 +31,7 @@ export default function Code({ isCopyable, children, className }: CodeProps) {
               svg.toggleAttribute("data-copied", true);
             }
 
-            await navigator.clipboard.writeText(text);
+            await navigator.clipboard.writeText(String(text));
             toast("Copied to clipboard");
 
             setTimeout(() => {

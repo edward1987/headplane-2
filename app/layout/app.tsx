@@ -1,5 +1,6 @@
 import { Outlet, redirect } from "react-router";
 
+import AdminShell from "~/components/admin-shell";
 import { ErrorBanner } from "~/components/error-banner";
 import { pruneEphemeralNodes } from "~/server/db/pruner";
 import { isDataUnauthorizedError } from "~/server/headscale/api/error-client";
@@ -7,8 +8,6 @@ import { Capabilities } from "~/server/web/roles";
 import log from "~/utils/log";
 
 import type { Route } from "./+types/app";
-import Footer from "./footer";
-import Header from "./header";
 
 export async function loader({ request, context, ...rest }: Route.LoaderArgs) {
   try {
@@ -63,15 +62,23 @@ export async function loader({ request, context, ...rest }: Route.LoaderArgs) {
 
     return {
       access: {
+        advanced:
+          context.auth.can(principal, Capabilities.read_debug) ||
+          context.auth.can(principal, Capabilities.read_system),
+        apiKeys: context.auth.can(principal, Capabilities.read_keys_api),
         dns: context.auth.can(principal, Capabilities.read_network),
         machines: context.auth.can(principal, Capabilities.read_machines),
         policy: context.auth.can(principal, Capabilities.read_policy),
         settings: context.auth.can(principal, Capabilities.read_feature),
+        system: context.auth.can(principal, Capabilities.read_system),
         ui: context.auth.can(principal, Capabilities.ui_access),
         users: context.auth.can(principal, Capabilities.read_users),
       },
+      apiVersion: context.hsApi.apiVersion,
       baseUrl: context.config.headscale.public_url ?? context.config.headscale.url,
       configAvailable: context.hs.readable(),
+      featureFlags: context.hsApi.featureFlags,
+      integrationName: context.integration?.name,
       isDebug: context.config.debug,
       isHealthy,
       user,
@@ -87,17 +94,19 @@ export async function loader({ request, context, ...rest }: Route.LoaderArgs) {
 
 export default function AppLayout({ loaderData }: Route.ComponentProps) {
   return (
-    <>
-      <Header
-        access={loaderData.access}
-        configAvailable={loaderData.configAvailable}
-        user={loaderData.user}
-      />
-      <main className="container mt-4 mb-24 overscroll-contain">
-        <Outlet />
-      </main>
-      <Footer isDebug={loaderData.isDebug} baseUrl={loaderData.baseUrl} />
-    </>
+    <AdminShell
+      access={loaderData.access}
+      apiVersion={loaderData.apiVersion}
+      baseUrl={loaderData.baseUrl}
+      configAvailable={loaderData.configAvailable}
+      featureFlags={loaderData.featureFlags}
+      integrationName={loaderData.integrationName}
+      isDebug={loaderData.isDebug}
+      isHealthy={loaderData.isHealthy}
+      user={loaderData.user}
+    >
+      <Outlet />
+    </AdminShell>
   );
 }
 

@@ -42,11 +42,14 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   );
   const [nodes, users] = await Promise.all([api.getNodes(), api.getUsers()]);
   const node = nodes.find((node) => node.id === params.id);
+  if (!node) {
+    throw data("Machine not found", { status: 404 });
+  }
 
   const lookup = await context.agents?.lookup([node.nodeKey]);
   const [enhancedNode] = mapNodes([node], lookup);
-  const tags = [...node.tags].toSorted();
-  const supportsNodeOwnerChange = !context.hsApi.clientHelpers.isAtleast("0.28.0-beta.1");
+  const tags = [...node.tags].sort();
+  const supportsNodeOwnerChange = !context.hsApi.clientHelpers.isAtleast("0.28.0");
 
   return {
     agent: context.agents?.agentID(),
@@ -118,7 +121,7 @@ export default function Page({
           <p className="text-sm text-mist-600 dark:text-mist-300">Status</p>
           <div className="mt-1 mb-8 flex gap-1">
             {mapTagsToComponents(node, uiTags)}
-            {tags.map((tag) => (
+            {tags.map((tag: string) => (
               <Chip key={tag} text={tag} />
             ))}
           </div>

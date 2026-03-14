@@ -1,4 +1,4 @@
-import { AlertCircle, Construction, Eye, FlaskConical, Pencil } from "lucide-react";
+import { AlertCircle, Eye, Pencil, Shapes } from "lucide-react";
 import { useEffect, useState } from "react";
 import { isRouteErrorResponse, useFetcher, useRevalidator } from "react-router";
 
@@ -15,11 +15,14 @@ import type { Route } from "./+types/overview";
 import { aclAction } from "./acl-action";
 import { aclLoader } from "./acl-loader";
 import { Differ, Editor } from "./components/cm.client";
+import { VisualEditor } from "./components/visual-editor";
 
 export const loader = aclLoader;
 export const action = aclAction;
 
-export default function Page({ loaderData: { access, writable, policy } }: Route.ComponentProps) {
+export default function Page({
+  loaderData: { access, writable, policy, users, nodes },
+}: Route.ComponentProps) {
   const [codePolicy, setCodePolicy] = useState(policy);
   const fetcher = useFetcher<typeof action>();
   const { revalidate } = useRevalidator();
@@ -102,21 +105,20 @@ export default function Page({ loaderData: { access, writable, policy } }: Route
           <Differ left={policy} right={codePolicy} />
         </Tabs.Item>
         <Tabs.Item
-          key="preview"
+          key="visual"
           title={
             <div className="flex items-center gap-2">
-              <FlaskConical className="p-1" />
-              <span>Preview rules</span>
+              <Shapes className="p-1" />
+              <span>Visual Editor</span>
             </div>
           }
         >
-          <div className="flex flex-col items-center py-8">
-            <Construction />
-            <p className="mt-4 w-1/2 text-center">
-              Previewing rules is not available yet. This feature is still in development and is
-              pretty complicated to implement. Hopefully I will be able to get to it soon.
-            </p>
-          </div>
+          <VisualEditor
+            policy={codePolicy}
+            onChange={setCodePolicy}
+            users={users}
+            isDisabled={disabled}
+          />
         </Tabs.Item>
       </Tabs>
       <Button

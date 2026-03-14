@@ -17,6 +17,12 @@ export const Capabilities = {
   use_tags: 1 << 13,
   write_tailnet: 1 << 14,
   owner: 1 << 15,
+  read_keys_api: 1 << 17,
+  write_keys_api: 1 << 18,
+  read_debug: 1 << 19,
+  write_debug: 1 << 20,
+  read_system: 1 << 21,
+  control_system: 1 << 22,
 } as const;
 
 export const Roles = {
@@ -36,6 +42,12 @@ export const Roles = {
     Capabilities.generate_authkeys |
     Capabilities.use_tags |
     Capabilities.write_tailnet |
+    Capabilities.read_keys_api |
+    Capabilities.write_keys_api |
+    Capabilities.read_debug |
+    Capabilities.write_debug |
+    Capabilities.read_system |
+    Capabilities.control_system |
     Capabilities.owner,
 
   admin:
@@ -53,7 +65,11 @@ export const Roles = {
     Capabilities.write_users |
     Capabilities.generate_authkeys |
     Capabilities.use_tags |
-    Capabilities.write_tailnet,
+    Capabilities.write_tailnet |
+    Capabilities.read_keys_api |
+    Capabilities.write_keys_api |
+    Capabilities.read_debug |
+    Capabilities.read_system,
 
   network_admin:
     Capabilities.ui_access |
@@ -66,7 +82,8 @@ export const Roles = {
     Capabilities.read_users |
     Capabilities.generate_authkeys |
     Capabilities.use_tags |
-    Capabilities.write_tailnet,
+    Capabilities.write_tailnet |
+    Capabilities.read_system,
 
   it_admin:
     Capabilities.ui_access |
@@ -79,7 +96,9 @@ export const Roles = {
     Capabilities.write_machines |
     Capabilities.read_users |
     Capabilities.write_users |
-    Capabilities.generate_authkeys,
+    Capabilities.generate_authkeys |
+    Capabilities.read_keys_api |
+    Capabilities.write_keys_api,
 
   auditor:
     Capabilities.ui_access |
@@ -88,12 +107,15 @@ export const Roles = {
     Capabilities.read_feature |
     Capabilities.read_machines |
     Capabilities.read_users |
+    Capabilities.read_keys_api |
+    Capabilities.read_system |
     Capabilities.generate_own_authkeys,
 
   viewer:
     Capabilities.ui_access |
     Capabilities.read_machines |
     Capabilities.read_users |
+    Capabilities.read_keys_api |
     Capabilities.generate_own_authkeys,
 
   // No access — user exists but has not been granted any role

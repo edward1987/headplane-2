@@ -1,66 +1,106 @@
-import { ArrowRight } from "lucide-react";
+import { Link } from "react-router";
 
-import Link from "~/components/link";
+import { AdminSection, FeatureNotice, StatCard } from "~/components/admin-shell";
+import Button from "~/components/Button";
 
 import type { Route } from "./+types/overview";
 
 export async function loader({ context }: Route.LoaderArgs) {
   const oidcConnector = await context.oidc?.connector.get();
   return {
-    config: context.hs.writable(),
+    configReadable: context.hs.readable(),
+    configWritable: context.hs.writable(),
+    integrationName: context.integration?.name,
     isOidcEnabled: oidcConnector?.isValid ?? false,
   };
 }
 
-export default function Page({ loaderData: { config, isOidcEnabled } }: Route.ComponentProps) {
+export default function Page({
+  loaderData: { configReadable, configWritable, integrationName, isOidcEnabled },
+}: Route.ComponentProps) {
   return (
-    <div className="flex max-w-(--breakpoint-lg) flex-col gap-8">
-      <div className="flex w-full flex-col sm:w-2/3">
-        <h1 className="mb-4 text-2xl font-medium">Settings</h1>
-        <p>
-          The settings page is still under construction. As I'm able to add more features, I'll be
-          adding them here. If you require any features, feel free to open an issue on the GitHub
-          repository.
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.24em] text-mist-500 dark:text-mist-400">
+          Settings
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold text-mist-950 dark:text-mist-25">
+          Tailnet settings and integrations
+        </h1>
+        <p className="mt-2 max-w-3xl text-sm text-mist-600 dark:text-mist-300">
+          Centralized access to writable Headscale configuration, authentication restrictions,
+          pre-auth key management, and integration-aware administration.
         </p>
       </div>
-      <div className="flex w-full flex-col sm:w-2/3">
-        <h1 className="mb-4 text-2xl font-medium">Pre-Auth Keys</h1>
-        <p>
-          Headscale fully supports pre-authentication keys in order to easily add devices to your
-          Tailnet. To learn more about using pre-authentication keys, visit the{" "}
-          <Link external styled to="https://tailscale.com/kb/1085/auth-keys/">
-            Tailscale documentation
-          </Link>
-        </p>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Config file" value={configReadable ? "Readable" : "Unavailable"} />
+        <StatCard
+          label="Config writes"
+          value={configWritable ? "Enabled" : "Read only"}
+          tone={configWritable ? "good" : "warn"}
+        />
+        <StatCard
+          label="OIDC restrictions"
+          value={isOidcEnabled ? "Available" : "Unavailable"}
+          tone={isOidcEnabled ? "good" : "warn"}
+        />
+        <StatCard label="Integration" value={integrationName ?? "None"} />
       </div>
-      <Link to="/settings/auth-keys">
-        <div className="flex items-center text-lg font-medium">
-          Manage Auth Keys
-          <ArrowRight className="ml-2 h-5 w-5" />
-        </div>
-      </Link>
-      {config && isOidcEnabled ? (
-        <>
-          <div className="flex w-full flex-col sm:w-2/3">
-            <h1 className="mb-4 text-2xl font-medium">Authentication Restrictions</h1>
-            <p>
-              Headscale supports restricting OIDC authentication to only allow certain email
-              domains, groups, or users to authenticate. This can be used to limit access to your
-              Tailnet to only certain users or groups and Headplane will also respect these settings
-              when authenticating.{" "}
-              <Link external styled to="https://headscale.net/stable/ref/oidc/#basic-configuration">
-                Learn More
-              </Link>
-            </p>
+
+      {!configReadable ? (
+        <FeatureNotice title="Headscale config is not readable" tone="warning">
+          Some configuration-driven admin features stay visible for navigation consistency, but they
+          will be read-only or unavailable until Headplane can read the Headscale config file.
+        </FeatureNotice>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AdminSection
+          title="Credential workflows"
+          description="Generate pre-auth keys for devices and API keys for automation."
+        >
+          <div className="flex flex-wrap gap-3">
+            <Link to="/keys/preauth">
+              <Button variant="heavy">Pre-auth keys</Button>
+            </Link>
+            <Link to="/keys/api">
+              <Button>API keys</Button>
+            </Link>
           </div>
-          <Link to="/settings/restrictions">
-            <div className="flex items-center text-lg font-medium">
-              Manage Restrictions
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </div>
-          </Link>
-        </>
-      ) : undefined}
+        </AdminSection>
+
+        <AdminSection
+          title="Identity controls"
+          description="Manage OIDC restrictions and linked account behavior."
+        >
+          <div className="flex flex-wrap gap-3">
+            <Link to="/settings/restrictions">
+              <Button isDisabled={!isOidcEnabled}>Authentication restrictions</Button>
+            </Link>
+            <Link to="/users">
+              <Button>User administration</Button>
+            </Link>
+          </div>
+        </AdminSection>
+
+        <AdminSection
+          title="Network configuration"
+          description="Review DNS, policy, and live system integration state."
+        >
+          <div className="flex flex-wrap gap-3">
+            <Link to="/dns">
+              <Button>DNS</Button>
+            </Link>
+            <Link to="/acls">
+              <Button>Access policy</Button>
+            </Link>
+            <Link to="/advanced/system">
+              <Button>System administration</Button>
+            </Link>
+          </div>
+        </AdminSection>
+      </div>
     </div>
   );
 }

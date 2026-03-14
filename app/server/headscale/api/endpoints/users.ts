@@ -12,6 +12,8 @@ export interface UserEndpoints {
 	 */
 	getUsers(id?: string, name?: string, email?: string): Promise<User[]>;
 
+	getUser(idOrName: string): Promise<User | null>;
+
 	/**
 	 * Creates a new user in the Headscale instance.
 	 *
@@ -61,6 +63,21 @@ export default defineApiEndpoints<UserEndpoints>((client, apiKey) => ({
 		);
 
 		return users;
+	},
+
+	getUser: async (idOrName) => {
+		const byId = await client.apiFetch<{ users: User[] }>('GET', 'v1/user', apiKey, {
+			id: idOrName,
+		});
+		if (byId.users.length > 0) {
+			return byId.users[0];
+		}
+
+		const byName = await client.apiFetch<{ users: User[] }>('GET', 'v1/user', apiKey, {
+			name: idOrName,
+		});
+
+		return byName.users[0] ?? null;
 	},
 
 	createUser: async (username, email, displayName, pictureUrl) => {

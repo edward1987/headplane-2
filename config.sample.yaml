@@ -7,12 +7,12 @@ server:
   # The base URL for Headplane. Please keep in mind that this will be required
   # for Headscale to properly function going forward AND it should not include
   # the dashboard prefix (/admin) portion.
-  base_url: "https://3000--main--headplane--edward.c.pdev.ro"
+  base_url: "http://localhost:3000"
 
   # The secret used to encode and decode web sessions (must be 32 characters)
   # You may also provide `cookie_secret_path` instead to read a value from disk.
   # See https://headplane.net/configuration/#sensitive-values
-  cookie_secret: "12345678901234567890123456789012"
+  cookie_secret: "<change_me_to_something_secure!>"
 
   # Whether cookies should be marked as Secure
   # * Should be false if running without HTTPs
@@ -33,7 +33,7 @@ server:
   #
   # Data formats prior to 0.6.1 will automatically be migrated.
   # PLEASE ensure this directory is mounted if running in Docker.
-  data_path: "./data"
+  data_path: "/var/lib/headplane"
 
   # The info secret is optional and allows access to certain debug endpoints
   # that may expose sensitive information about your Headplane instance.
@@ -53,7 +53,7 @@ headscale:
   # (THIS IS NOT the gRPC endpoint, but the HTTP endpoint)
   #
   # IMPORTANT: If you are using TLS this MUST be set to `https://`
-  url: "https://headscale.pcro.eu"
+  url: "http://headscale:5000"
 
   # If you use the TLS configuration in Headscale, and you are not using
   # Let's Encrypt for your certificate, pass in the path to the certificate.
@@ -68,7 +68,7 @@ headscale:
   # This is optional, but HIGHLY recommended for the best experience
   # If this is read only, Headplane will show your configuration settings
   # in the Web UI, but they cannot be changed.
- # config_path: "./config.yaml"
+  config_path: "/etc/headscale/config.yaml"
 
   # Whether the Headscale configuration should be strictly validated
   # when reading from `config_path`. If true, Headplane will not interact
@@ -100,7 +100,7 @@ integration:
 
     # To connect to your Tailnet, you need to generate a pre-auth key
     # This can be done via the web UI or through the `headscale` CLI.
-    pre_authkey: "hskey-auth-WiML1F5C0W0o-f-uhC9pKHlDvYxMdRI893tB6OiGzevVz8HLt-dZ7OIRNA9XtVDpYYussFy8_pBDU"
+    pre_authkey: "<your-preauth-key>"
 
     # Optionally change the name of the agent in the Tailnet.
     # host_name: "headplane-agent"

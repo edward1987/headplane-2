@@ -58,7 +58,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   }
 
   if (context.auth.can(principal, Capabilities.ui_access)) {
-    return redirect("/machines");
+    return redirect("/overview");
   }
 
   // No UI access — show the download/connect page

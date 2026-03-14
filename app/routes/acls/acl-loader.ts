@@ -26,26 +26,38 @@ export async function aclLoader({ request, context }: Route.LoaderArgs) {
     access: context.auth.can(principal, Capabilities.write_policy),
     writable: false,
     policy: "",
+    // Additional data for visual editor
+    users: [] as { id: string; name: string; email: string }[],
+    nodes: [] as { id: string; name: string; tags: string[] }[],
   };
 
   // Try to load the ACL policy from the API.
   const apiKey = context.auth.getHeadscaleApiKey(principal, context.oidc?.apiKey);
   const api = context.hsApi.getRuntimeClient(apiKey);
-  try {
-    const { policy, updatedAt } = await api.getPolicy();
-    flags.writable = updatedAt !== null;
-    flags.policy = policy;
-    return flags;
-  } catch (error) {
-    if (isDataWithApiError(error)) {
-      // https://github.com/juanfont/headscale/blob/c4600346f9c29b514dc9725ac103efb9d0381f23/hscontrol/types/policy.go#L10
-      if (error.data.rawData.includes("acl policy not found")) {
-        flags.policy = "";
-        flags.writable = true;
-        return flags;
-      }
-    }
 
-    throw error;
-  }
+  // Fetch policy, users, and nodes in parallel
+  const [policyResult, apiUsers, nodes] = await Promise.all([
+    api.getPolicy().catch(() => ({ policy: "", updatedAt: null })),
+    api.getUsers(),
+    api.getNodes(),
+  ]);
+
+  flags.writable = policyResult.updatedAt !== null;
+  flags.policy = policyResult.policy;
+
+  // Map users for the visual editor
+  flags.users = apiUsers.map((user) => ({
+    id: user.id,
+    name: user.name ?? "",
+    email: user.email ?? "",
+  }));
+
+  // Map nodes with tags for the visual editor
+  flags.nodes = nodes.map((node) => ({
+    id: node.id,
+    name: node.name ?? "",
+    tags: node.tags ?? [],
+  }));
+
+  return flags;
 }

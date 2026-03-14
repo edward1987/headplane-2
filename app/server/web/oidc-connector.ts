@@ -228,7 +228,7 @@ async function discoveryCoalesce(
       }
     }
   } catch {
-    log.warn("oidc", "Failed to reach OIDC provider for discovery, will retry on next request");
+    log.warn("config", "Failed to reach OIDC provider for discovery, will retry on next request");
     discoveryFailed = true;
     metadata = {
       issuer: config.issuer,

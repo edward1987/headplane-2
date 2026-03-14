@@ -17,14 +17,26 @@ export default [
   // All the main logged-in routes
   layout("layout/app.tsx", [
     index("routes/home.tsx"),
+    route("/overview", "routes/overview.tsx"),
     ...prefix("/machines", [
       index("routes/machines/overview.tsx"),
       route("/:id", "routes/machines/machine.tsx"),
     ]),
 
-    route("/users", "routes/users/overview.tsx"),
+    ...prefix("/users", [
+      index("routes/users/overview.tsx"),
+      route("/:id", "routes/users/user.tsx"),
+    ]),
     route("/acls", "routes/acls/overview.tsx"),
     route("/dns", "routes/dns/overview.tsx"),
+    ...prefix("/keys", [
+      route("/api", "routes/keys/api.tsx"),
+      route("/preauth", "routes/keys/preauth.tsx"),
+    ]),
+    ...prefix("/advanced", [
+      route("/debug", "routes/advanced/debug.tsx"),
+      route("/system", "routes/advanced/system.tsx"),
+    ]),
 
     ...prefix("/settings", [
       index("routes/settings/overview.tsx"),

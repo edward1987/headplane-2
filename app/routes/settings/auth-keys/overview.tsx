@@ -166,8 +166,8 @@ export default function Page({
   return (
     <div className="flex flex-col md:w-2/3">
       <p className="text-md mb-8">
-        <Link className="font-medium" to="/settings">
-          Settings
+        <Link className="font-medium" to="/keys/api">
+          Keys
         </Link>
         <span className="mx-2">/</span> Pre-Auth Keys
       </p>
