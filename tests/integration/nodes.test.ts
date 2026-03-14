@@ -65,6 +65,22 @@ describe.sequential.for(HS_VERSIONS)("Headscale %s: Users", (version) => {
     expect(expiredNode.expiry).toBeDefined();
   });
 
+  test("debug nodes can be created through the current endpoint", async () => {
+    const client = await getRuntimeClient(version);
+    const user = await client.createUser(`debug-node-${version.replaceAll(".", "-")}@`);
+
+    const debugNode = await client.debugCreateNode({
+      key: `mkey:${version.replaceAll(".", "")}-debug`,
+      name: `debug-${version.replaceAll(".", "-")}`,
+      routes: ["10.42.0.0/24"],
+      user: user.id,
+    });
+
+    expect(debugNode).toBeDefined();
+    expect(debugNode.id).toBeDefined();
+    expect(debugNode.availableRoutes).toContain("10.42.0.0/24");
+  });
+
   test("nodes can be deleted", async () => {
     const client = await getRuntimeClient(version);
     await client.deleteNode(workingNodeId);

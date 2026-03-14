@@ -1,8 +1,8 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 
+import { AdminSection, FeatureNotice, StatCard } from "~/components/admin-shell";
 import Code from "~/components/Code";
-import Notice from "~/components/Notice";
 import type { LoadContext } from "~/server";
 import { Capabilities } from "~/server/web/roles";
 
@@ -65,31 +65,70 @@ export default function Page() {
   const isDisabled = data.access === false || data.writable === false;
 
   return (
-    <div className="flex max-w-(--breakpoint-lg) flex-col gap-16">
-      {data.writable ? undefined : (
-        <Notice>
-          The Headscale configuration is read-only. You cannot make changes to the configuration
-        </Notice>
-      )}
-      {data.access ? undefined : (
-        <Notice>
-          Your permissions do not allow you to modify the DNS settings for this tailnet.
-        </Notice>
-      )}
-      <RenameTailnet isDisabled={isDisabled} name={data.baseDomain} />
-      <ManageNS isDisabled={isDisabled} nameservers={allNs} overrideLocalDns={data.overrideDns} />
-      <ManageRecords isDisabled={isDisabled} records={data.extraRecords} />
-      <ManageDomains
-        isDisabled={isDisabled}
-        magic={data.magicDns ? data.baseDomain : undefined}
-        searchDomains={data.searchDomains}
-      />
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="text-xs tracking-[0.24em] text-mist-500 uppercase dark:text-mist-400">DNS</p>
+        <h1 className="dark:text-mist-25 mt-2 text-3xl font-semibold text-mist-950">
+          Tailnet naming and resolution
+        </h1>
+        <p className="mt-2 max-w-3xl text-sm text-mist-600 dark:text-mist-300">
+          Configure tailnet DNS behavior, nameservers, search domains, and extra records.
+        </p>
+      </div>
 
-      <div className="flex w-full flex-col sm:w-2/3">
-        <h1 className="mb-4 text-2xl font-medium">Magic DNS</h1>
-        <p className="mb-4">
-          Automatically register domain names for each device on the tailnet. Devices will be
-          accessible at{" "}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Base domain" value={data.baseDomain} />
+        <StatCard
+          label="Magic DNS"
+          tone={data.magicDns ? "good" : "warn"}
+          value={data.magicDns ? "Enabled" : "Disabled"}
+        />
+        <StatCard label="Global nameservers" value={data.nameservers.length} />
+        <StatCard label="Extra records" value={data.extraRecords.length} />
+      </div>
+
+      {!data.writable ? (
+        <FeatureNotice title="Configuration is read-only" tone="warning">
+          The Headscale configuration file is not writable, so DNS changes cannot be applied from
+          this session.
+        </FeatureNotice>
+      ) : null}
+      {!data.access ? (
+        <FeatureNotice title="DNS mutations are restricted" tone="warning">
+          Your role does not allow you to modify DNS settings for this tailnet.
+        </FeatureNotice>
+      ) : null}
+
+      <RenameTailnet isDisabled={isDisabled} name={data.baseDomain} />
+
+      <AdminSection title="Nameservers" description="Configure global and split DNS nameservers.">
+        <ManageNS isDisabled={isDisabled} nameservers={allNs} overrideLocalDns={data.overrideDns} />
+      </AdminSection>
+
+      <AdminSection
+        title="Extra records"
+        description="Publish static records into the tailnet DNS view."
+      >
+        <ManageRecords isDisabled={isDisabled} records={data.extraRecords} />
+      </AdminSection>
+
+      <AdminSection
+        title="Search domains"
+        description="Control search suffixes and user-facing DNS ergonomics."
+      >
+        <ManageDomains
+          isDisabled={isDisabled}
+          magic={data.magicDns ? data.baseDomain : undefined}
+          searchDomains={data.searchDomains}
+        />
+      </AdminSection>
+
+      <AdminSection
+        title="Magic DNS"
+        description="Automatically register DNS names for devices on the tailnet."
+      >
+        <p className="mb-4 text-sm text-mist-600 dark:text-mist-300">
+          Devices will be reachable at{" "}
           <Code>
             [device].
             {data.baseDomain}
@@ -97,7 +136,7 @@ export default function Page() {
           when Magic DNS is enabled.
         </p>
         <ToggleMagic isDisabled={isDisabled} isEnabled={data.magicDns} />
-      </div>
+      </AdminSection>
     </div>
   );
 }

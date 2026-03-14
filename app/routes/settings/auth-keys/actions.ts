@@ -96,9 +96,9 @@ export async function authKeysAction({ request, context }: Route.ActionArgs) {
       return data({ success: true as const, key: key.key });
     }
     case "expire_preauthkey": {
-      const key = formData.get("key")?.toString();
-      if (!key) {
-        return data("Missing `key` in the form data.", {
+      const id = formData.get("id")?.toString();
+      if (!id) {
+        return data("Missing `id` in the form data.", {
           status: 400,
         });
       }
@@ -112,8 +112,24 @@ export async function authKeysAction({ request, context }: Route.ActionArgs) {
 
       await checkSelfServiceOwnership(user);
 
-      await api.expirePreAuthKey(user, key);
+      await api.expirePreAuthKey(id);
       return data("Pre-auth key expired");
+    }
+    case "delete_preauthkey": {
+      const id = formData.get("id")?.toString();
+      if (!id) {
+        return data("Missing `id` in the form data.", {
+          status: 400,
+        });
+      }
+
+      const user = formData.get("user_id")?.toString();
+      if (user) {
+        await checkSelfServiceOwnership(user);
+      }
+
+      await api.deletePreAuthKey(id);
+      return data("Pre-auth key deleted");
     }
     default:
       return data("Invalid action", {

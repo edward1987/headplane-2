@@ -1,7 +1,6 @@
 import type { DebugCreateNodeInput, Machine, NodeRouteDetail } from "~/types";
 
 import type { HeadscaleApiInterface } from "..";
-
 import { defineApiEndpoints } from "../factory";
 
 interface RawMachine extends Omit<Machine, "tags"> {
@@ -34,7 +33,7 @@ export interface NodeEndpoints {
    *
    * @returns An array of `Machine` objects representing the nodes.
    */
-  getNodes(): Promise<Machine[]>;
+  getNodes(userId?: string): Promise<Machine[]>;
 
   /**
    * Retrieves a specific node (machine) by its ID.
@@ -106,9 +105,34 @@ export interface NodeEndpoints {
   debugCreateNode(input: DebugCreateNodeInput): Promise<Machine>;
 }
 
+function normalizeRoutes(node: Machine): NodeRouteDetail[] {
+  const availableRoutes = new Set(node.availableRoutes ?? []);
+  const approvedRoutes = new Set(node.approvedRoutes ?? []);
+  const subnetRoutes = new Set(node.subnetRoutes ?? []);
+  const prefixes = new Set([
+    ...Array.from(availableRoutes),
+    ...Array.from(approvedRoutes),
+    ...Array.from(subnetRoutes),
+  ]);
+
+  return Array.from(prefixes)
+    .sort((left, right) => left.localeCompare(right))
+    .map((prefix) => ({
+      advertised: availableRoutes.has(prefix),
+      enabled: approvedRoutes.has(prefix),
+      isPrimary: subnetRoutes.has(prefix),
+      prefix,
+    }));
+}
+
 export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
-  getNodes: async () => {
-    const { nodes } = await client.apiFetch<{ nodes: RawMachine[] }>("GET", "v1/node", apiKey);
+  getNodes: async (userId) => {
+    const { nodes } = await client.apiFetch<{ nodes: RawMachine[] }>(
+      "GET",
+      "v1/node",
+      apiKey,
+      userId ? { user: userId } : undefined,
+    );
     return nodes.map((node) => normalizeTags(client, node));
   },
 
@@ -127,16 +151,13 @@ export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
   },
 
   registerNode: async (user, key) => {
-    const qp = new URLSearchParams();
-    qp.append("user", user);
-    qp.append("key", key);
     const { node } = await client.apiFetch<{ node: RawMachine }>(
       "POST",
-      `v1/node/register?${qp.toString()}`,
+      "v1/node/register",
       apiKey,
       {
-        user,
         key,
+        user,
       },
     );
 
@@ -173,24 +194,24 @@ export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
   },
 
   getNodeRoutes: async (nodeId) => {
-    const { routes } = await client.apiFetch<{ routes: NodeRouteDetail[] }>(
+    const { node } = await client.apiFetch<{ node: RawMachine }>(
       "GET",
-      `v1/machine/${nodeId}/routes`,
+      `v1/node/${nodeId}`,
       apiKey,
     );
 
-    return routes;
+    return normalizeRoutes(normalizeTags(client, node));
   },
 
   setNodeRoutes: async (nodeId, routes) => {
-    const { routes: nextRoutes } = await client.apiFetch<{ routes: NodeRouteDetail[] }>(
+    const { node } = await client.apiFetch<{ node: RawMachine }>(
       "POST",
-      `v1/machine/${nodeId}/routes`,
+      `v1/node/${nodeId}/approve_routes`,
       apiKey,
       { routes },
     );
 
-    return nextRoutes;
+    return normalizeRoutes(normalizeTags(client, node));
   },
 
   debugCreateNode: async (input) => {
@@ -202,16 +223,15 @@ export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
 
     if (input.user) {
       body.user = input.user;
-      body.namespace = input.user;
     }
 
-    const { machine, node } = await client.apiFetch<{ machine?: RawMachine; node?: RawMachine }>(
+    const { node } = await client.apiFetch<{ node: RawMachine }>(
       "POST",
-      "v1/debug/machine",
+      "v1/debug/node",
       apiKey,
       body,
     );
 
-    return normalizeTags(client, machine ?? node!);
+    return normalizeTags(client, node);
   },
 }));

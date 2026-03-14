@@ -1,6 +1,5 @@
 import { data } from "react-router";
 
-import { isDataWithApiError } from "~/server/headscale/api/error-client";
 import { Capabilities } from "~/server/web/roles";
 
 import type { Route } from "./+types/overview";
@@ -28,7 +27,17 @@ export async function aclLoader({ request, context }: Route.LoaderArgs) {
     policy: "",
     // Additional data for visual editor
     users: [] as { id: string; name: string; email: string }[],
-    nodes: [] as { id: string; name: string; tags: string[] }[],
+    nodes: [] as {
+      id: string;
+      name: string;
+      givenName: string;
+      user?: string;
+      tags: string[];
+      ipAddresses: string[];
+      availableRoutes: string[];
+      approvedRoutes: string[];
+      machineKey?: string;
+    }[],
   };
 
   // Try to load the ACL policy from the API.
@@ -54,9 +63,15 @@ export async function aclLoader({ request, context }: Route.LoaderArgs) {
 
   // Map nodes with tags for the visual editor
   flags.nodes = nodes.map((node) => ({
+    approvedRoutes: node.approvedRoutes ?? [],
+    availableRoutes: node.availableRoutes ?? [],
+    givenName: node.givenName ?? "",
     id: node.id,
     name: node.name ?? "",
+    ipAddresses: node.ipAddresses ?? [],
+    machineKey: node.machineKey ?? undefined,
     tags: node.tags ?? [],
+    user: node.user?.name,
   }));
 
   return flags;

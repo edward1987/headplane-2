@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 
 import { eq } from "drizzle-orm";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { AdminSection, FeatureNotice, StatCard } from "~/components/admin-shell";
+import Input from "~/components/Input";
 import { users as usersTable } from "~/server/db/schema";
 import { getOidcSubject } from "~/server/web/headscale-identity";
 import { Capabilities } from "~/server/web/roles";
@@ -23,7 +25,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const principal = await context.auth.require(request);
   const check = await context.auth.can(principal, Capabilities.read_users);
   if (!check) {
-    // Not authorized to view this page
     throw new Error(
       "You do not have permission to view this page. Please contact your administrator.",
     );
@@ -52,32 +53,23 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         : user.profilePicUrl,
   }));
 
+  const sortedUsers = [...users].sort((a, b) => a.name.localeCompare(b.name));
   const roles = await Promise.all(
-    users
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map(async (user) => {
-        if (user.provider !== "oidc") {
-          return "no-oidc";
-        }
+    sortedUsers.map(async (user) => {
+      if (user.provider !== "oidc") {
+        return "no-oidc";
+      }
 
-        const subject = getOidcSubject(user);
-        if (!subject) {
-          return "invalid-oidc";
-        }
+      const subject = getOidcSubject(user);
+      if (!subject) {
+        return "invalid-oidc";
+      }
 
-        const role = await context.auth.roleForSubject(subject);
-        return role ?? "no-role";
-      }),
+      const role = await context.auth.roleForSubject(subject);
+      return role ?? "no-role";
+    }),
   );
 
-  let magic: string | undefined;
-  if (context.hs.readable()) {
-    if (context.hs.c?.dns.magic_dns) {
-      magic = context.hs.c.dns.base_domain;
-    }
-  }
-
-  // Build linkable Headscale users for admin link dialog
   const claimed = await context.auth.claimedHeadscaleUserIds();
   const headscaleUsers = apiUsers.map((u) => ({
     id: u.id,
@@ -85,7 +77,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     claimed: claimed.has(u.id),
   }));
 
-  // Build a map of Headscale user -> linked Headplane subject
   const userLinks: Record<string, string | undefined> = {};
   for (const u of apiUsers) {
     const subject = getOidcSubject(u);
@@ -100,71 +91,140 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   }
 
   return {
-    writable: writablePermission, // whether the user can write to the API
+    headscaleUsers,
     oidc: context.config.oidc
       ? {
           issuer: context.config.oidc.issuer,
         }
       : undefined,
     roles,
-    magic,
-    users,
-    headscaleUsers,
+    sortedUsers,
     userLinks,
+    writable: writablePermission,
   };
 }
 
 export const action = userAction;
 
 export default function Page({ loaderData }: Route.ComponentProps) {
-  const [users, setUsers] = useState<UserMachine[]>(loaderData.users);
+  const [users, setUsers] = useState<UserMachine[]>(loaderData.sortedUsers);
+  const [query, setQuery] = useState("");
 
-  // This useEffect is entirely for the purpose of updating the users when the
-  // drag and drop changes the machines between users. It's pretty hacky, but
-  // the idea is to treat data.users as the source of truth and update the
-  // local state when it changes.
   useEffect(() => {
-    setUsers(loaderData.users);
-  }, [loaderData.users]);
+    setUsers(loaderData.sortedUsers);
+  }, [loaderData.sortedUsers]);
+
+  const filteredUsers = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) {
+      return users;
+    }
+
+    return users.filter((user) => {
+      const haystack = [user.name, user.displayName, user.email]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalized);
+    });
+  }, [query, users]);
+
+  const oidcUsers = users.filter((user) => user.provider === "oidc").length;
+  const managedUsers = users.filter((user) => user.machines.length > 0).length;
+  const linkedUsers = users.filter((user) => loaderData.userLinks[user.id]).length;
 
   return (
-    <>
-      <h1 className="mb-1.5 text-2xl font-medium">Users</h1>
-      <p className="text-md mb-8">Manage the users in your network and their permissions.</p>
-      <ManageBanner isDisabled={!loaderData.writable} oidc={loaderData.oidc} />
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] table-auto rounded-lg">
-          <thead className="text-mist-600 dark:text-mist-300">
-            <tr className="px-0.5 text-left">
-              <th className="pb-2 text-xs font-bold uppercase">User</th>
-              <th className="pb-2 text-xs font-bold uppercase">Role</th>
-              <th className="pb-2 text-xs font-bold uppercase">Created At</th>
-              <th className="pb-2 text-xs font-bold uppercase">Last Seen</th>
-              <th className="w-12 pb-2">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody
-            className={cn(
-              "divide-y divide-mist-100 dark:divide-mist-800 align-top",
-              "border-t border-mist-100 dark:border-mist-800",
-            )}
-          >
-            {users
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((user) => (
-                <UserRow
-                  key={user.id}
-                  currentLink={loaderData.userLinks[user.id]}
-                  headscaleUsers={loaderData.headscaleUsers}
-                  role={loaderData.roles[users.indexOf(user)]}
-                  user={user}
-                />
-              ))}
-          </tbody>
-        </table>
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="text-xs tracking-[0.24em] text-mist-500 uppercase dark:text-mist-400">
+          Users
+        </p>
+        <h1 className="dark:text-mist-25 mt-2 text-3xl font-semibold text-mist-950">
+          Identity and ownership
+        </h1>
+        <p className="mt-2 max-w-3xl text-sm text-mist-600 dark:text-mist-300">
+          Manage Headscale users, linked Headplane identities, and ownership of machines across the
+          tailnet.
+        </p>
       </div>
-    </>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Users" value={users.length} />
+        <StatCard label="OIDC managed" value={oidcUsers} />
+        <StatCard label="With machines" value={managedUsers} />
+        <StatCard label="Linked in Headplane" value={linkedUsers} />
+      </div>
+
+      {!loaderData.writable ? (
+        <FeatureNotice title="User mutations are restricted" tone="warning">
+          You can review users and links, but creating, renaming, or reassigning users is disabled
+          for this session.
+        </FeatureNotice>
+      ) : null}
+
+      <ManageBanner isDisabled={!loaderData.writable} oidc={loaderData.oidc} />
+
+      <AdminSection
+        title="User directory"
+        description="Search and manage users, roles, linked accounts, and their machine ownership."
+      >
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="w-full max-w-md">
+            <Input
+              label="Search users"
+              labelHidden
+              onChange={(value) => setQuery(value)}
+              placeholder="Search by user, display name, or email..."
+              value={query}
+            />
+          </div>
+          <span className="text-sm whitespace-nowrap text-mist-500">
+            {query
+              ? `Showing ${filteredUsers.length} of ${users.length} users`
+              : `${users.length} users`}
+          </span>
+        </div>
+
+        {filteredUsers.length === 0 ? (
+          <FeatureNotice title="No matching users">
+            No users matched the current filter.
+          </FeatureNotice>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-mist-200 bg-white/40 dark:border-mist-800 dark:bg-mist-950/30">
+            <table className="w-full min-w-[760px] table-auto rounded-lg">
+              <thead className="text-mist-600 dark:text-mist-300">
+                <tr className="px-0.5 text-left">
+                  <th className="px-4 py-3 text-xs font-bold uppercase">User</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase">Role</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase">Created At</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase">Last Seen</th>
+                  <th className="w-12 px-4 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody
+                className={cn(
+                  "divide-y divide-mist-100 dark:divide-mist-800 align-top",
+                  "border-t border-mist-100 dark:border-mist-800",
+                )}
+              >
+                {filteredUsers.map((user) => (
+                  <UserRow
+                    key={user.id}
+                    currentLink={loaderData.userLinks[user.id]}
+                    headscaleUsers={loaderData.headscaleUsers}
+                    role={
+                      loaderData.roles[loaderData.sortedUsers.findIndex((u) => u.id === user.id)]
+                    }
+                    user={user}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminSection>
+    </div>
   );
 }

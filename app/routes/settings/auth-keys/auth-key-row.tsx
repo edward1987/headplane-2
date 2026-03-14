@@ -1,4 +1,5 @@
 import Attribute from "~/components/Attribute";
+import Dialog from "~/components/Dialog";
 import type { PreAuthKey, User } from "~/types";
 import { getUserDisplayName } from "~/utils/user";
 
@@ -30,6 +31,21 @@ export default function AuthKeyRow({ authKey, user }: Props) {
           <ExpireAuthKey authKey={authKey} user={user} />
         </div>
       )}
+      <div className="mt-2" suppressHydrationWarning>
+        <Dialog>
+          <Dialog.Button>Delete Key</Dialog.Button>
+          <Dialog.Panel variant="destructive">
+            <Dialog.Title>Delete auth key?</Dialog.Title>
+            <input name="action_id" type="hidden" value="delete_preauthkey" />
+            {user ? <input name="user_id" type="hidden" value={user.id} /> : null}
+            <input name="id" type="hidden" value={authKey.id} />
+            <Dialog.Text>
+              Deleting this authentication key permanently removes it from Headscale. This action
+              cannot be undone.
+            </Dialog.Text>
+          </Dialog.Panel>
+        </Dialog>
+      </div>
     </div>
   );
 }

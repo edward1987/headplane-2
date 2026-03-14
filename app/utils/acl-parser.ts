@@ -1,7 +1,4 @@
-// ACL Parser and Serializer Utilities
-// Parses Headscale ACL JSON into structured objects and vice versa
-
-// ==================== Types ====================
+import YAML from "yaml";
 
 export interface AclRule {
   action: "accept";
@@ -26,42 +23,41 @@ export interface Host {
 }
 
 export interface SshRule {
-  action: "accept" | "deny";
+  action: "accept" | "check" | "deny";
   src: string[];
   dst: string[];
   users?: string[];
-  groups?: string[];
 }
 
 export interface TestRule {
-  name: string;
-  sources: string[];
-  destination: string[];
+  src: string;
+  accept: string[];
+  deny: string[];
 }
 
 export interface AutoApproverRoutes {
-  advertiseRoutes: string[];
+  [route: string]: string[];
 }
 
 export interface AutoApproverExitNodes {
-  acceptExitNodes: string[];
+  [scope: string]: string[];
 }
 
 export interface AutoApproverDerp {
-  acceptMagicIPs: boolean;
+  [scope: string]: string[];
 }
 
 export interface AutoApprovers {
   routes?: AutoApproverRoutes;
-  exitNodes?: AutoApproverExitNodes;
+  exitNode?: AutoApproverExitNodes;
+  exitNodeDestinations?: AutoApproverExitNodes;
   derp?: AutoApproverDerp;
+  exitNodes?: { acceptExitNodes: string[] };
 }
 
 export interface NodeAttr {
+  target: string[];
   attr: string[];
-  groups?: string[];
-  users?: string[];
-  tags?: string[];
 }
 
 export interface IpSet {
@@ -75,10 +71,11 @@ export interface AclPolicy {
   hosts?: Record<string, string>;
   acls?: AclRule[];
   ssh?: SshRule[];
-  tests?: TestRule[];
+  tests?: Array<{ src: string; accept?: string[]; deny?: string[] }>;
   autoApprovers?: AutoApprovers;
-  nodeAttrs?: NodeAttr[];
+  nodeAttrs?: Array<Record<string, string[]>>;
   ipsets?: Record<string, string[]>;
+  [key: string]: unknown;
 }
 
 export interface ParsedAclData {
@@ -91,14 +88,76 @@ export interface ParsedAclData {
   autoApprovers: AutoApprovers;
   nodeAttrs: NodeAttr[];
   ipsets: IpSet[];
+  extras: Record<string, unknown>;
 }
 
-// ==================== Parser ====================
+const KNOWN_TOP_LEVEL_KEYS = new Set([
+  "groups",
+  "tagOwners",
+  "hosts",
+  "acls",
+  "ssh",
+  "tests",
+  "autoApprovers",
+  "nodeAttrs",
+  "ipsets",
+]);
 
-/**
- * Parse ACL JSON string into structured objects
- */
-export function parseAclPolicy(policyJson: string): ParsedAclData {
+export const AUTOGROUPS = [
+  { id: "autogroup:internet", description: "Internet access through exit nodes" },
+  { id: "autogroup:member", description: "All untagged personal devices" },
+  { id: "autogroup:tagged", description: "All tagged devices" },
+  { id: "autogroup:self", description: "Same user owns both source and destination" },
+  { id: "autogroup:nonroot", description: "All non-root users (SSH only)" },
+] as const;
+
+export const COMMON_PORTS = [
+  { value: "*", label: "All ports" },
+  { value: "22", label: "SSH (22)" },
+  { value: "53", label: "DNS (53)" },
+  { value: "80", label: "HTTP (80)" },
+  { value: "443", label: "HTTPS (443)" },
+  { value: "5432", label: "PostgreSQL (5432)" },
+  { value: "3306", label: "MySQL (3306)" },
+  { value: "6379", label: "Redis (6379)" },
+  { value: "3389", label: "RDP (3389)" },
+] as const;
+
+export const PROTOCOLS = [
+  { value: "", label: "Default (TCP/UDP/ICMP)" },
+  { value: "tcp", label: "TCP" },
+  { value: "udp", label: "UDP" },
+  { value: "icmp", label: "ICMP" },
+  { value: "sctp", label: "SCTP" },
+  { value: "gre", label: "GRE" },
+  { value: "esp", label: "ESP" },
+  { value: "ah", label: "AH" },
+  { value: "igmp", label: "IGMP" },
+  { value: "ipv4", label: "IPv4 / IP-in-IP" },
+  { value: "ip-in-ip", label: "IP-in-IP" },
+] as const;
+
+export const NODE_ATTRS = [
+  { value: "funnel", label: "Funnel" },
+  { value: "funnel:128", label: "Funnel (Dedicated IP)" },
+  { value: "shields_up", label: "Shields Up" },
+  { value: "shields_up:128", label: "Shields Up (Dedicated IP)" },
+  { value: "ssh_permit_root_login", label: "Permit root SSH login" },
+  { value: "ssh_permit_password_auth", label: "Permit password SSH auth" },
+] as const;
+
+export const COMMON_SSH_USERS = [
+  "autogroup:nonroot",
+  "root",
+  "ubuntu",
+  "admin",
+  "ec2-user",
+  "debian",
+  "core",
+  "*",
+];
+
+export function parseAclPolicy(policyText: string): ParsedAclData {
   const defaultData: ParsedAclData = {
     groups: [],
     tagOwners: [],
@@ -109,210 +168,209 @@ export function parseAclPolicy(policyJson: string): ParsedAclData {
     autoApprovers: {},
     nodeAttrs: [],
     ipsets: [],
+    extras: {},
   };
 
-  if (!policyJson || policyJson.trim() === "") {
+  if (!policyText || policyText.trim() === "") {
     return defaultData;
   }
 
   try {
-    const policy: AclPolicy = JSON.parse(policyJson);
-
-    // Parse groups
-    const groups: Group[] = [];
-    if (policy.groups) {
-      for (const [name, users] of Object.entries(policy.groups)) {
-        groups.push({ name, users });
-      }
-    }
-
-    // Parse tagOwners
-    const tagOwners: TagOwner[] = [];
-    if (policy.tagOwners) {
-      for (const [tag, owners] of Object.entries(policy.tagOwners)) {
-        tagOwners.push({ tag, owners });
-      }
-    }
-
-    // Parse hosts
-    const hosts: Host[] = [];
-    if (policy.hosts) {
-      for (const [name, ip] of Object.entries(policy.hosts)) {
-        hosts.push({ name, ip });
-      }
-    }
-
-    // Parse ACLs
-    const acls: AclRule[] = policy.acls || [];
-
-    // Parse SSH rules
-    const ssh: SshRule[] = policy.ssh || [];
-
-    // Parse tests
-    const tests: TestRule[] = policy.tests || [];
-
-    // Parse autoApprovers
-    const autoApprovers: AutoApprovers = policy.autoApprovers || {};
-
-    // Parse nodeAttrs
-    const nodeAttrs: NodeAttr[] = policy.nodeAttrs || [];
-
-    // Parse ipsets
-    const ipsets: IpSet[] = [];
-    if (policy.ipsets) {
-      for (const [name, cidr] of Object.entries(policy.ipsets)) {
-        ipsets.push({ name, cidr });
+    const policy = parsePolicyObject(policyText);
+    const extras: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(policy)) {
+      if (!KNOWN_TOP_LEVEL_KEYS.has(key)) {
+        extras[key] = value;
       }
     }
 
     return {
-      groups,
-      tagOwners,
-      hosts,
-      acls,
-      ssh,
-      tests,
-      autoApprovers,
-      nodeAttrs,
-      ipsets,
+      groups: Object.entries(policy.groups ?? {}).map(([name, users]) => ({ name, users })),
+      tagOwners: Object.entries(policy.tagOwners ?? {}).map(([tag, owners]) => ({ tag, owners })),
+      hosts: Object.entries(policy.hosts ?? {}).map(([name, ip]) => ({ name, ip })),
+      acls: (policy.acls ?? []).map((rule) => ({
+        action: "accept",
+        dst: rule.dst ?? [],
+        proto: rule.proto,
+        src: rule.src ?? [],
+      })),
+      ssh: (policy.ssh ?? []).map((rule) => ({
+        action: rule.action ?? "accept",
+        dst: rule.dst ?? [],
+        src: rule.src ?? [],
+        users: rule.users ?? [],
+      })),
+      tests: (policy.tests ?? []).map((test) => ({
+        src: test.src,
+        accept: test.accept ?? [],
+        deny: test.deny ?? [],
+      })),
+      autoApprovers: policy.autoApprovers ?? {},
+      nodeAttrs: normalizeNodeAttrs(policy.nodeAttrs ?? []),
+      ipsets: Object.entries(policy.ipsets ?? {}).map(([name, cidr]) => ({ name, cidr })),
+      extras,
     };
   } catch {
-    // If parsing fails, return empty data
     return defaultData;
   }
 }
 
-// ==================== Serializer ====================
-
-/**
- * Serialize structured ACL data back to JSON string
- */
 export function serializeAclPolicy(data: ParsedAclData): string {
-  const policy: Record<string, unknown> = {};
+  const policy: Record<string, unknown> = { ...data.extras };
 
-  // Serialize groups
-  const groups: Record<string, string[]> = {};
-  for (const group of data.groups) {
-    if (group.name && group.users.length > 0) {
-      groups[group.name] = group.users;
-    }
-  }
+  const groups = Object.fromEntries(
+    data.groups
+      .filter((group) => group.name && group.users.length > 0)
+      .map((group) => [group.name, uniq(group.users)]),
+  );
   if (Object.keys(groups).length > 0) {
     policy.groups = groups;
+  } else {
+    delete policy.groups;
   }
 
-  // Serialize tagOwners
-  const tagOwners: Record<string, string[]> = {};
-  for (const tagOwner of data.tagOwners) {
-    if (tagOwner.tag && tagOwner.owners.length > 0) {
-      tagOwners[tagOwner.tag] = tagOwner.owners;
-    }
-  }
+  const tagOwners = Object.fromEntries(
+    data.tagOwners
+      .filter((tagOwner) => tagOwner.tag && tagOwner.owners.length > 0)
+      .map((tagOwner) => [tagOwner.tag, uniq(tagOwner.owners)]),
+  );
   if (Object.keys(tagOwners).length > 0) {
     policy.tagOwners = tagOwners;
+  } else {
+    delete policy.tagOwners;
   }
 
-  // Serialize hosts
-  const hosts: Record<string, string> = {};
-  for (const host of data.hosts) {
-    if (host.name && host.ip) {
-      hosts[host.name] = host.ip;
-    }
-  }
+  const hosts = Object.fromEntries(
+    data.hosts.filter((host) => host.name && host.ip).map((host) => [host.name, host.ip]),
+  );
   if (Object.keys(hosts).length > 0) {
     policy.hosts = hosts;
+  } else {
+    delete policy.hosts;
   }
 
-  // Serialize ACLs
-  const acls = data.acls.filter(
-    (rule) => rule.src.length > 0 && rule.dst.length > 0,
-  );
+  const acls = data.acls
+    .map((rule) => ({
+      action: "accept" as const,
+      dst: uniq(rule.dst).filter(Boolean),
+      ...(rule.proto ? { proto: rule.proto } : {}),
+      src: uniq(rule.src).filter(Boolean),
+    }))
+    .filter((rule) => rule.src.length > 0 && rule.dst.length > 0);
   if (acls.length > 0) {
     policy.acls = acls;
+  } else {
+    delete policy.acls;
   }
 
-  // Serialize SSH rules
-  const ssh = data.ssh.filter(
-    (rule) => rule.src.length > 0 && rule.dst.length > 0,
-  );
+  const ssh = data.ssh
+    .map((rule) => ({
+      action: rule.action,
+      dst: uniq(rule.dst).filter(Boolean),
+      src: uniq(rule.src).filter(Boolean),
+      ...(rule.users && rule.users.length > 0 ? { users: uniq(rule.users).filter(Boolean) } : {}),
+    }))
+    .filter((rule) => rule.src.length > 0 && rule.dst.length > 0);
   if (ssh.length > 0) {
     policy.ssh = ssh;
+  } else {
+    delete policy.ssh;
   }
 
-  // Serialize tests
-  if (data.tests.length > 0) {
-    policy.tests = data.tests;
+  const tests = data.tests
+    .map((test) => ({
+      src: test.src,
+      ...(test.accept.length > 0 ? { accept: uniq(test.accept) } : {}),
+      ...(test.deny.length > 0 ? { deny: uniq(test.deny) } : {}),
+    }))
+    .filter((test) => test.src && (test.accept?.length || test.deny?.length));
+  if (tests.length > 0) {
+    policy.tests = tests;
+  } else {
+    delete policy.tests;
   }
 
-  // Serialize autoApprovers
-  if (
-    data.autoApprovers.routes ||
-    data.autoApprovers.exitNodes ||
-    data.autoApprovers.derp
-  ) {
+  if (hasMeaningfulAutoApprovers(data.autoApprovers)) {
     policy.autoApprovers = data.autoApprovers;
+  } else {
+    delete policy.autoApprovers;
   }
 
-  // Serialize nodeAttrs
-  if (data.nodeAttrs.length > 0) {
-    policy.nodeAttrs = data.nodeAttrs;
+  const nodeAttrs = data.nodeAttrs
+    .map((entry) => {
+      const targets = uniq(entry.target).filter(Boolean);
+      const attrs = uniq(entry.attr).filter(Boolean);
+      if (targets.length === 0 || attrs.length === 0) {
+        return null;
+      }
+      return Object.fromEntries(targets.map((target) => [target, attrs]));
+    })
+    .filter(Boolean);
+  if (nodeAttrs.length > 0) {
+    policy.nodeAttrs = nodeAttrs;
+  } else {
+    delete policy.nodeAttrs;
   }
 
-  // Serialize ipsets
-  const ipsets: Record<string, string[]> = {};
-  for (const ipset of data.ipsets) {
-    if (ipset.name && ipset.cidr.length > 0) {
-      ipsets[ipset.name] = ipset.cidr;
-    }
-  }
+  const ipsets = Object.fromEntries(
+    data.ipsets
+      .filter((ipset) => ipset.name && ipset.cidr.length > 0)
+      .map((ipset) => [ipset.name, uniq(ipset.cidr)]),
+  );
   if (Object.keys(ipsets).length > 0) {
     policy.ipsets = ipsets;
+  } else {
+    delete policy.ipsets;
   }
 
   return JSON.stringify(policy, null, 2);
 }
 
-// ==================== Constants ====================
+export function normalizeGroupName(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.startsWith("group:") ? trimmed : `group:${trimmed}`;
+}
 
-export const AUTOGROUPS = [
-  { id: "autogroup:internet", description: "Internet access through exit nodes" },
-  { id: "autogroup:member", description: "All untagged personal devices" },
-  { id: "autogroup:tagged", description: "All devices with at least one tag" },
-  { id: "autogroup:self", description: "Same user owns both src and dst (experimental)" },
-  { id: "autogroup:nonroot", description: "All non-root users (SSH only)" },
-] as const;
+export function normalizeTagName(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.startsWith("tag:") ? trimmed : `tag:${trimmed}`;
+}
 
-export const COMMON_PORTS = [
-  { value: "*", label: "All ports" },
-  { value: "22", label: "SSH (22)" },
-  { value: "80", label: "HTTP (80)" },
-  { value: "443", label: "HTTPS (443)" },
-  { value: "3389", label: "RDP (3389)" },
-  { value: "445", label: "SMB (445)" },
-  { value: "5432", label: "PostgreSQL (5432)" },
-  { value: "3306", label: "MySQL (3306)" },
-  { value: "6379", label: "Redis (6379)" },
-  { value: "27017", label: "MongoDB (27017)" },
-] as const;
+export function normalizeIpSetName(value: string) {
+  return value.trim().replace(/^#/, "");
+}
 
-export const PROTOCOLS = [
-  { value: "", label: "Any" },
-  { value: "tcp", label: "TCP" },
-  { value: "udp", label: "UDP" },
-  { value: "icmp", label: "ICMP" },
-] as const;
+function parsePolicyObject(policyText: string): AclPolicy {
+  try {
+    return JSON.parse(policyText) as AclPolicy;
+  } catch {
+    return YAML.parse(policyText) as AclPolicy;
+  }
+}
 
-export const SSH_PROTOCOLS = [
-  { value: "", label: "Any" },
-  { value: "tcp", label: "TCP" },
-] as const;
+function normalizeNodeAttrs(entries: Array<Record<string, string[]>>): NodeAttr[] {
+  return entries.flatMap((entry) => {
+    const attrSets = Object.entries(entry).filter(([, attrs]) => Array.isArray(attrs));
+    if (attrSets.length === 0) {
+      return [];
+    }
 
-// Node attributes for nodeAttrs
-export const NODE_ATTRS = [
-  { value: "funnel", label: "Funnel (advertise service to internet)" },
-  { value: "funnel:128", label: "Funnel 128 (dedicated IP)" },
-  { value: "shields_up", label: "Shields Up (block unsolicited)" },
-  { value: "shields_up:128", label: "Shields Up 128" },
-  { value: "ssh_permit_root_login", label: "Permit Root Login" },
-  { value: "ssh_permit_password_auth", label: "Permit Password Auth" },
-] as const;
+    return attrSets.map(([target, attr]) => ({
+      attr,
+      target: [target],
+    }));
+  });
+}
+
+function uniq(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function hasMeaningfulAutoApprovers(autoApprovers: AutoApprovers) {
+  return Object.values(autoApprovers).some((value) => {
+    if (!value) return false;
+    return Object.values(value).some((items) => Array.isArray(items) && items.length > 0);
+  });
+}

@@ -5,7 +5,7 @@ Headplane now ships with an admin-first console that organizes Headscale operati
 - `Overview` for health, compatibility, counts, and quick actions
 - `Machines` for device lifecycle, routing, and ownership
 - `Users` for identity, role, and linked-account administration
-- `Access` for ACL policy editing
+- `Access` for ACL policy editing and the visual ACL designer
 - `DNS` for Headscale DNS configuration
 - `Keys` for API keys and pre-auth keys
 - `Settings` for config-aware feature management
@@ -19,6 +19,20 @@ The `Keys` section now separates API key management from pre-auth key management
 - Review currently known API keys
 - Expire stale or compromised API keys
 - Continue using pre-auth keys for machine enrollment
+
+## ACL Designer
+
+The `Access` page now includes a full ACL designer built around Headscale's policy model.
+
+It covers:
+
+- groups, tag owners, host aliases, and IP sets
+- network ACLs with protocol-aware destination suggestions
+- SSH rules, policy tests, auto-approvers, and node attributes
+- autocomplete for known users, groups, tags, machines, host aliases, node IPs, and advertised subnet routes
+- raw editing and diff preview alongside the visual designer, so advanced policy changes still stay possible
+
+Headplane keeps custom values editable, so you can still type selectors or scopes that are not currently discoverable from the live Headscale state.
 
 ## Debug Tools
 

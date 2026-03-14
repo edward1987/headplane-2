@@ -53,6 +53,17 @@ export async function action({ request, context }: Route.ActionArgs) {
     return { message: `Expired ${prefix}.` };
   }
 
+  if (actionId === "delete_api_key") {
+    const id = String(formData.get("id") ?? "");
+    const prefix = String(formData.get("prefix") ?? "");
+    if (!id && !prefix) {
+      throw data("Missing key identifier.", { status: 400 });
+    }
+
+    await api.deleteApiKey(id ? { id } : { prefix });
+    return { message: `Deleted ${prefix || id}.` };
+  }
+
   throw data("Invalid action.", { status: 400 });
 }
 
@@ -62,8 +73,8 @@ export default function Page({ loaderData }: Route.ComponentProps) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.24em] text-mist-500 dark:text-mist-400">Keys</p>
-        <h1 className="mt-2 text-3xl font-semibold text-mist-950 dark:text-mist-25">API keys</h1>
+        <p className="text-xs tracking-[0.24em] text-mist-500 uppercase dark:text-mist-400">Keys</p>
+        <h1 className="dark:text-mist-25 mt-2 text-3xl font-semibold text-mist-950">API keys</h1>
         <p className="mt-2 max-w-3xl text-sm text-mist-600 dark:text-mist-300">
           Create operator keys for automation or break-glass administration, and expire credentials
           that should no longer access Headscale.
@@ -80,7 +91,10 @@ export default function Page({ loaderData }: Route.ComponentProps) {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-        <AdminSection title="Create API key" description="New keys are shown only once after creation.">
+        <AdminSection
+          title="Create API key"
+          description="New keys are shown only once after creation."
+        >
           <Form className="grid gap-4" method="post">
             <input name="action_id" type="hidden" value="create_api_key" />
             <Input
@@ -96,28 +110,41 @@ export default function Page({ loaderData }: Route.ComponentProps) {
           </Form>
         </AdminSection>
 
-        <AdminSection title="Inventory" description="Current Headscale API keys visible to this admin session.">
+        <AdminSection
+          title="Inventory"
+          description="Current Headscale API keys visible to this admin session."
+        >
           <div className="grid gap-3">
             <StatCard label="Known API keys" value={loaderData.keys.length} />
             <div className="grid gap-3">
               {loaderData.keys.map((key) => (
                 <div
                   key={key.id}
-                  className="flex flex-col gap-3 rounded-2xl border border-mist-200 bg-mist-50/70 p-4 dark:border-mist-800 dark:bg-mist-900/50 md:flex-row md:items-center md:justify-between"
+                  className="flex flex-col gap-3 rounded-2xl border border-mist-200 bg-mist-50/70 p-4 md:flex-row md:items-center md:justify-between dark:border-mist-800 dark:bg-mist-900/50"
                 >
                   <div>
-                    <p className="font-semibold text-mist-950 dark:text-mist-25">{key.prefix}</p>
+                    <p className="dark:text-mist-25 font-semibold text-mist-950">{key.prefix}</p>
                     <p className="mt-1 text-sm text-mist-600 dark:text-mist-300">
                       Expires: {key.expiration ?? "never"}
                     </p>
                   </div>
-                  <Form method="post">
-                    <input name="action_id" type="hidden" value="expire_api_key" />
-                    <input name="prefix" type="hidden" value={key.prefix} />
-                    <Button isDisabled={!loaderData.writable} type="submit" variant="danger">
-                      Expire
-                    </Button>
-                  </Form>
+                  <div className="flex gap-2">
+                    <Form method="post">
+                      <input name="action_id" type="hidden" value="expire_api_key" />
+                      <input name="prefix" type="hidden" value={key.prefix} />
+                      <Button isDisabled={!loaderData.writable} type="submit" variant="danger">
+                        Expire
+                      </Button>
+                    </Form>
+                    <Form method="post">
+                      <input name="action_id" type="hidden" value="delete_api_key" />
+                      <input name="id" type="hidden" value={key.id} />
+                      <input name="prefix" type="hidden" value={key.prefix} />
+                      <Button isDisabled={!loaderData.writable} type="submit">
+                        Delete
+                      </Button>
+                    </Form>
+                  </div>
                 </div>
               ))}
               {loaderData.keys.length === 0 ? (

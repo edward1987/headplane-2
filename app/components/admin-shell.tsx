@@ -17,6 +17,7 @@ import Button from "~/components/Button";
 import logoBg from "~/logo/dark-bg.svg";
 import logoDark from "~/logo/dark.svg";
 import logoLight from "~/logo/light.svg";
+import type { ApiFeatureFlags } from "~/types";
 import cn from "~/utils/cn";
 
 type Access = {
@@ -48,12 +49,7 @@ export interface AdminShellProps {
   baseUrl: string;
   children: ReactNode;
   configAvailable: boolean;
-  featureFlags: {
-    canManageDebugNodes: boolean;
-    canManageTagOnlyPreAuthKeys: boolean;
-    canReadAllPreAuthKeys: boolean;
-    canReassignNodeOwner: boolean;
-  };
+  featureFlags: ApiFeatureFlags;
   integrationName?: string;
   isDebug: boolean;
   isHealthy: boolean;
@@ -80,7 +76,7 @@ export function AdminSection({
     <section className="rounded-3xl border border-mist-200 bg-white/90 p-6 shadow-sm dark:border-mist-800 dark:bg-mist-950/80">
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-mist-950 dark:text-mist-25">{title}</h2>
+          <h2 className="dark:text-mist-25 text-xl font-semibold text-mist-950">{title}</h2>
           {description ? (
             <p className="mt-1 text-sm text-mist-600 dark:text-mist-300">{description}</p>
           ) : null}
@@ -107,16 +103,21 @@ export function StatCard({
     <div
       className={cn(
         "rounded-2xl border p-4",
-        tone === "good" && "border-emerald-200 bg-emerald-50/80 dark:border-emerald-900 dark:bg-emerald-950/40",
-        tone === "warn" && "border-amber-200 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/40",
-        tone === "default" && "border-mist-200 bg-mist-50/80 dark:border-mist-800 dark:bg-mist-900/60",
+        tone === "good" &&
+          "border-emerald-200 bg-emerald-50/80 dark:border-emerald-900 dark:bg-emerald-950/40",
+        tone === "warn" &&
+          "border-amber-200 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/40",
+        tone === "default" &&
+          "border-mist-200 bg-mist-50/80 dark:border-mist-800 dark:bg-mist-900/60",
       )}
     >
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-mist-500 dark:text-mist-400">
+      <div className="text-xs font-semibold tracking-[0.2em] text-mist-500 uppercase dark:text-mist-400">
         {label}
       </div>
-      <div className="mt-2 text-2xl font-semibold text-mist-950 dark:text-mist-25">{value}</div>
-      {detail ? <div className="mt-2 text-sm text-mist-600 dark:text-mist-300">{detail}</div> : null}
+      <div className="dark:text-mist-25 mt-2 text-2xl font-semibold text-mist-950">{value}</div>
+      {detail ? (
+        <div className="mt-2 text-sm text-mist-600 dark:text-mist-300">{detail}</div>
+      ) : null}
     </div>
   );
 }
@@ -134,10 +135,12 @@ export function FeatureNotice({
     <div
       className={cn(
         "rounded-2xl border px-4 py-3 text-sm",
-        tone === "info" && "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
+        tone === "info" &&
+          "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
         tone === "warning" &&
           "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
-        tone === "danger" && "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100",
+        tone === "danger" &&
+          "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100",
       )}
     >
       <p className="font-semibold">{title}</p>
@@ -160,8 +163,8 @@ export default function AdminShell(props: AdminShellProps) {
               <img alt="Headplane logo" className="h-10 w-10" src={logoBg} />
             </picture>
             <div>
-              <div className="text-lg font-semibold text-mist-950 dark:text-mist-25">Headplane</div>
-              <div className="text-xs uppercase tracking-[0.2em] text-mist-500 dark:text-mist-400">
+              <div className="dark:text-mist-25 text-lg font-semibold text-mist-950">Headplane</div>
+              <div className="text-xs tracking-[0.2em] text-mist-500 uppercase dark:text-mist-400">
                 Admin Console
               </div>
             </div>
@@ -171,21 +174,34 @@ export default function AdminShell(props: AdminShellProps) {
             <div className="rounded-2xl border border-mist-200 bg-mist-50/80 p-4 dark:border-mist-800 dark:bg-mist-900/60">
               <div className="flex items-center gap-3">
                 {props.user.picture ? (
-                  <img alt={props.user.name} className="h-10 w-10 rounded-full" src={props.user.picture} />
+                  <img
+                    alt={props.user.name}
+                    className="h-10 w-10 rounded-full"
+                    src={props.user.picture}
+                  />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-mist-200 text-sm font-semibold dark:bg-mist-800">
                     {props.user.name.slice(0, 1).toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-mist-950 dark:text-mist-25">{props.user.name}</p>
+                  <p className="dark:text-mist-25 truncate font-medium text-mist-950">
+                    {props.user.name}
+                  </p>
                   <p className="truncate text-xs text-mist-500 dark:text-mist-400">
                     {props.user.email ?? props.user.subject}
                   </p>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                <span className={cn("rounded-full px-2 py-1 font-medium", props.isHealthy ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200" : "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200")}>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-1 font-medium",
+                    props.isHealthy
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+                      : "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200",
+                  )}
+                >
                   {props.isHealthy ? "Headscale healthy" : "Headscale degraded"}
                 </span>
                 <span className="rounded-full bg-mist-200 px-2 py-1 font-medium text-mist-700 dark:bg-mist-800 dark:text-mist-200">
@@ -230,23 +246,51 @@ export default function AdminShell(props: AdminShellProps) {
             </nav>
 
             <div className="rounded-2xl border border-mist-200 bg-white/80 p-4 text-xs dark:border-mist-800 dark:bg-mist-950/50">
-              <p className="font-semibold uppercase tracking-[0.2em] text-mist-500 dark:text-mist-400">Feature flags</p>
+              <p className="font-semibold tracking-[0.2em] text-mist-500 uppercase dark:text-mist-400">
+                Feature flags
+              </p>
               <div className="mt-3 grid gap-2 text-mist-600 dark:text-mist-300">
                 <div className="flex items-center justify-between gap-3">
                   <span>Tag-only keys</span>
-                  <Shield className={cn("h-4 w-4", props.featureFlags.canManageTagOnlyPreAuthKeys ? "text-emerald-500" : "text-mist-400")} />
+                  <Shield
+                    className={cn(
+                      "h-4 w-4",
+                      props.featureFlags.canManageTagOnlyPreAuthKeys
+                        ? "text-emerald-500"
+                        : "text-mist-400",
+                    )}
+                  />
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span>All pre-auth keys</span>
-                  <Shield className={cn("h-4 w-4", props.featureFlags.canReadAllPreAuthKeys ? "text-emerald-500" : "text-mist-400")} />
+                  <Shield
+                    className={cn(
+                      "h-4 w-4",
+                      props.featureFlags.canReadAllPreAuthKeys
+                        ? "text-emerald-500"
+                        : "text-mist-400",
+                    )}
+                  />
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span>Owner reassignment</span>
-                  <Shield className={cn("h-4 w-4", props.featureFlags.canReassignNodeOwner ? "text-emerald-500" : "text-mist-400")} />
+                  <Shield
+                    className={cn(
+                      "h-4 w-4",
+                      props.featureFlags.canReassignNodeOwner
+                        ? "text-emerald-500"
+                        : "text-mist-400",
+                    )}
+                  />
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span>Debug machines</span>
-                  <Shield className={cn("h-4 w-4", props.featureFlags.canManageDebugNodes ? "text-emerald-500" : "text-mist-400")} />
+                  <Shield
+                    className={cn(
+                      "h-4 w-4",
+                      props.featureFlags.canManageDebugNodes ? "text-emerald-500" : "text-mist-400",
+                    )}
+                  />
                 </div>
               </div>
             </div>
@@ -257,7 +301,7 @@ export default function AdminShell(props: AdminShellProps) {
           <header className="border-b border-mist-200/80 bg-white/70 px-6 py-4 backdrop-blur dark:border-mist-800 dark:bg-mist-950/40">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-mist-500 dark:text-mist-400">
+                <p className="text-xs tracking-[0.24em] text-mist-500 uppercase dark:text-mist-400">
                   Tailnet administration
                 </p>
                 <p className="mt-1 flex items-center gap-2 text-sm text-mist-600 dark:text-mist-300">
@@ -271,7 +315,10 @@ export default function AdminShell(props: AdminShellProps) {
                     Debug enabled
                   </span>
                 ) : null}
-                <Button onPress={() => submit({}, { action: "/logout", method: "POST" })} variant="light">
+                <Button
+                  onPress={() => submit({}, { action: "/logout", method: "POST" })}
+                  variant="light"
+                >
                   Sign out
                 </Button>
               </div>

@@ -8,12 +8,16 @@ describe("Roles and Capabilities", () => {
       expect(Roles.owner & Capabilities.ui_access).toBe(Capabilities.ui_access);
       expect(Roles.owner & Capabilities.owner).toBe(Capabilities.owner);
       expect(Roles.owner & Capabilities.write_users).toBe(Capabilities.write_users);
+      expect(Roles.owner & Capabilities.control_system).toBe(Capabilities.control_system);
     });
 
     test("admin has ui_access but not owner flag", () => {
       expect(Roles.admin & Capabilities.ui_access).toBe(Capabilities.ui_access);
       expect(Roles.admin & Capabilities.owner).toBe(0);
       expect(Roles.admin & Capabilities.write_users).toBe(Capabilities.write_users);
+      expect(Roles.admin & Capabilities.write_keys_api).toBe(Capabilities.write_keys_api);
+      expect(Roles.admin & Capabilities.read_system).toBe(Capabilities.read_system);
+      expect(Roles.admin & Capabilities.control_system).toBe(0);
     });
 
     test("auditor has ui_access but limited write permissions", () => {
@@ -34,11 +38,14 @@ describe("Roles and Capabilities", () => {
       expect(hasCapability("owner", "ui_access")).toBe(true);
       expect(hasCapability("admin", "ui_access")).toBe(true);
       expect(hasCapability("auditor", "ui_access")).toBe(true);
+      expect(hasCapability("it_admin", "write_keys_api")).toBe(true);
     });
 
     test("returns false when role lacks the capability", () => {
       expect(hasCapability("member", "ui_access")).toBe(false);
       expect(hasCapability("auditor", "write_users")).toBe(false);
+      expect(hasCapability("viewer", "read_system")).toBe(false);
+      expect(hasCapability("admin", "control_system")).toBe(false);
     });
 
     test("only owner has owner capability", () => {

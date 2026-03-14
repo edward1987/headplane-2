@@ -34,7 +34,9 @@ export interface PreAuthKeyEndpoints {
    * @param user The user associated with the pre-authentication key.
    * @param key The pre-authentication key to expire.
    */
-  expirePreAuthKey(user: string, key: string): Promise<void>;
+  expirePreAuthKey(id: string): Promise<void>;
+
+  deletePreAuthKey(id: string): Promise<void>;
 }
 
 export default defineApiEndpoints<PreAuthKeyEndpoints>((client, apiKey) => ({
@@ -47,6 +49,14 @@ export default defineApiEndpoints<PreAuthKeyEndpoints>((client, apiKey) => ({
   },
 
   getPreAuthKeys: async (user) => {
+    if (client.isAtleast("0.28.0")) {
+      const { preAuthKeys } = await client.apiFetch<{
+        preAuthKeys: PreAuthKey[];
+      }>("GET", "v1/preauthkey", apiKey, {});
+
+      return preAuthKeys.filter((preAuthKey) => preAuthKey.user?.id === user);
+    }
+
     const { preAuthKeys } = await client.apiFetch<{
       preAuthKeys: PreAuthKey[];
     }>("GET", "v1/preauthkey", apiKey, { user });
@@ -58,11 +68,14 @@ export default defineApiEndpoints<PreAuthKeyEndpoints>((client, apiKey) => ({
     const body: Record<string, unknown> = {
       ephemeral,
       reusable,
-      expiration: expiration ? expiration.toISOString() : null,
     };
 
+    if (expiration) {
+      body.expiration = expiration.toISOString();
+    }
+
     if (user) {
-      body.user = user;
+      body.user = Number(user);
     }
 
     if (aclTags && aclTags.length > 0) {
@@ -76,10 +89,15 @@ export default defineApiEndpoints<PreAuthKeyEndpoints>((client, apiKey) => ({
     return preAuthKey;
   },
 
-  expirePreAuthKey: async (user, key) => {
+  expirePreAuthKey: async (id) => {
     await client.apiFetch<void>("POST", "v1/preauthkey/expire", apiKey, {
-      user,
-      key,
+      id: Number(id),
+    });
+  },
+
+  deletePreAuthKey: async (id) => {
+    await client.apiFetch<void>("DELETE", "v1/preauthkey", apiKey, {
+      id: Number(id),
     });
   },
 }));

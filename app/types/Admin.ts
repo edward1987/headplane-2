@@ -1,5 +1,9 @@
 export interface ApiFeatureFlags {
   canManageApiKeys: boolean;
+  canDeleteApiKeys: boolean;
+  canDeletePreAuthKeys: boolean;
+  canBackfillNodeIPs: boolean;
+  canControlPendingAuth: boolean;
   canManageDebugNodes: boolean;
   canManageTagOnlyPreAuthKeys: boolean;
   canReadAllPreAuthKeys: boolean;
