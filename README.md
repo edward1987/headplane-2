@@ -1,4 +1,5 @@
 # Headplane
+
 > A feature-complete web UI for [Headscale](https://headscale.net)
 
 <picture>
@@ -21,6 +22,11 @@ based VPN service. By default, it does not ship with a web UI, which is where
 Headplane comes in. Headplane is a feature-complete web UI for Headscale, allowing
 you to manage your nodes, networks, and ACLs with ease.
 
+This repository is a port and upgraded project based on the original
+[tale/headplane](https://github.com/tale/headplane). It keeps the original
+project as its foundation while extending the admin surface, modernizing the UI,
+and tracking newer Headscale behavior.
+
 Headplane aims to replicate the functionality offered by the official Tailscale
 product and dashboard, being one of the most feature complete Headscale UIs available.
 These are some of the features that Headplane offers:
@@ -31,15 +37,42 @@ These are some of the features that Headplane offers:
 - The ability to edit DNS settings and automatically provision Headscale
 - Configurability for Headscale's settings
 
+## What's New In This Port
+
+Compared with the original [tale/headplane](https://github.com/tale/headplane),
+this project adds a broader and more modern administration experience, including:
+
+- A redesigned admin-first console with `Overview`, `Keys`, `Advanced`, richer `Machines`, and improved `Users`
+- Expanded Headscale API coverage for API keys, debug node creation, route management, and newer server behaviors
+- A full ACL designer with autocomplete for users, groups, tags, hosts, machines, and subnet routes
+- Machine tag workflows that can suggest ACL tags and auto-create missing ACL tag ownership entries when policy is writable
+- User rename workflows that can propagate username changes into ACL policy references
+- Better advanced diagnostics for integrations and system-level controls
+
+If you are familiar with the upstream project, this repo should feel like a forward-looking,
+Headscale-current fork focused on a fuller web administration experience.
+
 ## Deployment
+
 Refer to the [website](https://headplane.net) for detailed installation instructions.
 
+## Container Builds
+
+This repository includes GitHub Actions workflows for container builds:
+
+- `.github/workflows/release.yaml` publishes tagged releases to `ghcr.io`
+- `.github/workflows/container.yaml` builds container images for `main`, pull requests, and manual runs
+
+The container workflow builds both the standard runtime image and the `debug-shell` image target.
+
 ## Versioning
+
 Headplane uses [semantic versioning](https://semver.org/) for its releases (since v0.6.0).
 Pre-release builds are available under the `next` tag and get updated when a new release
 PR is opened and actively in testing.
 
 ## Contributing
+
 Headplane is an open-source project and contributions are welcome! If you have
 any suggestions, bug reports, or feature requests, please open an issue. Also
 refer to the [contributor guidelines](./docs/CONTRIBUTING.md) for more info.
