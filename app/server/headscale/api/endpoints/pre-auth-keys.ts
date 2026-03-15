@@ -29,14 +29,19 @@ export interface PreAuthKeyEndpoints {
   ): Promise<PreAuthKey>;
 
   /**
-   * Expires a specific pre-authentication key for a user.
+   * Expires a specific pre-authentication key.
    *
-   * @param user The user associated with the pre-authentication key.
-   * @param key The pre-authentication key to expire.
+   * @param key The pre-authentication key string to expire.
    */
-  expirePreAuthKey(id: string): Promise<void>;
+  expirePreAuthKey(key: string): Promise<void>;
 
-  deletePreAuthKey(id: string): Promise<void>;
+  /**
+   * Deletes a pre-authentication key.
+   * Requires Headscale 0.28+.
+   *
+   * @param key The pre-authentication key string to delete.
+   */
+  deletePreAuthKey(key: string): Promise<void>;
 }
 
 export default defineApiEndpoints<PreAuthKeyEndpoints>((client, apiKey) => ({
@@ -54,7 +59,7 @@ export default defineApiEndpoints<PreAuthKeyEndpoints>((client, apiKey) => ({
         preAuthKeys: PreAuthKey[];
       }>("GET", "v1/preauthkey", apiKey, {});
 
-      return preAuthKeys.filter((preAuthKey) => preAuthKey.user?.id === user);
+      return preAuthKeys.filter((preAuthKey) => String(preAuthKey.user?.id) === String(user));
     }
 
     const { preAuthKeys } = await client.apiFetch<{
@@ -89,15 +94,15 @@ export default defineApiEndpoints<PreAuthKeyEndpoints>((client, apiKey) => ({
     return preAuthKey;
   },
 
-  expirePreAuthKey: async (id) => {
+  expirePreAuthKey: async (key) => {
     await client.apiFetch<void>("POST", "v1/preauthkey/expire", apiKey, {
-      id: Number(id),
+      key,
     });
   },
 
-  deletePreAuthKey: async (id) => {
+  deletePreAuthKey: async (key) => {
     await client.apiFetch<void>("DELETE", "v1/preauthkey", apiKey, {
-      id: Number(id),
+      key,
     });
   },
 }));

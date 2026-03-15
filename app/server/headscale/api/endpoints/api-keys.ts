@@ -34,9 +34,14 @@ export default defineApiEndpoints<ApiKeyEndpoints>((client, apiKey) => ({
       },
     );
 
+    // Headscale API keys are in format tskey-api-xxxx-yyyyy where xxxx is the prefix
+    // and yyyyy is the secret. Split on the last hyphen to get the prefix.
+    const lastHyphenIndex = created.lastIndexOf("-");
+    const prefix = lastHyphenIndex > 0 ? created.slice(0, lastHyphenIndex) : created;
+
     return {
-      id: created.split(".")[0] ?? created,
-      prefix: created.split(".")[0] ?? created,
+      id: prefix,
+      prefix,
       expiration: expiration ? expiration.toISOString() : null,
       createdAt: new Date().toISOString(),
       lastSeen: null,
