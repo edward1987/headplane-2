@@ -73,7 +73,7 @@ describe.sequential.for(HS_VERSIONS)("Headscale %s: Users", (version) => {
       key: `mkey:${version.replaceAll(".", "")}-debug`,
       name: `debug-${version.replaceAll(".", "-")}`,
       routes: ["10.42.0.0/24"],
-      user: user.id,
+      user: user.name,
     });
 
     expect(debugNode).toBeDefined();

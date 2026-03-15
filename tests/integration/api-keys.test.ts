@@ -2,6 +2,10 @@ import { describe, expect, test } from "vitest";
 
 import { getRuntimeClient, HS_VERSIONS } from "./setup/env";
 
+function matchesCreatedApiKey(prefix: string, value: string) {
+  return value.startsWith(prefix.replaceAll("*", ""));
+}
+
 describe.for(HS_VERSIONS)("Headscale %s: API Keys", (version) => {
   test("api keys can be fetched", async () => {
     const client = await getRuntimeClient(version);
@@ -17,12 +21,12 @@ describe.for(HS_VERSIONS)("Headscale %s: API Keys", (version) => {
     expect(created.value).toBeDefined();
 
     const apiKeys = await client.getApiKeys();
-    const createdKey = apiKeys.find((key) => key.prefix === created.prefix);
+    const createdKey = apiKeys.find((key) => matchesCreatedApiKey(key.prefix, created.value!));
     expect(createdKey).toBeDefined();
 
-    await client.expireApiKey(created.prefix);
+    await client.expireApiKey(createdKey!.prefix);
     const refreshedKeys = await client.getApiKeys();
-    const expiredKey = refreshedKeys.find((key) => key.prefix === created.prefix);
+    const expiredKey = refreshedKeys.find((key) => key.id === createdKey!.id);
     expect(expiredKey).toBeDefined();
   });
 
@@ -34,12 +38,12 @@ describe.for(HS_VERSIONS)("Headscale %s: API Keys", (version) => {
 
     const created = await client.createApiKey(new Date(Date.now() + 24 * 3600 * 1000));
     const beforeDelete = await client.getApiKeys();
-    const existing = beforeDelete.find((key) => key.prefix === created.prefix);
+    const existing = beforeDelete.find((key) => matchesCreatedApiKey(key.prefix, created.value!));
     expect(existing).toBeDefined();
 
-    await client.deleteApiKey({ prefix: created.prefix });
+    await client.deleteApiKey(existing!.id ? { id: existing!.id } : { prefix: existing!.prefix });
 
     const afterDelete = await client.getApiKeys();
-    expect(afterDelete.find((key) => key.prefix === created.prefix)).toBeUndefined();
+    expect(afterDelete.find((key) => key.id === existing!.id)).toBeUndefined();
   });
 });

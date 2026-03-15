@@ -223,7 +223,7 @@ export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
     };
 
     if (input.user) {
-      body.user = Number(input.user);
+      body.user = input.user;
     }
 
     const { node } = await client.apiFetch<{ node: RawMachine }>(
