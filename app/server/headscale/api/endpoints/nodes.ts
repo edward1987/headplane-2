@@ -125,6 +125,11 @@ function normalizeRoutes(node: Machine): NodeRouteDetail[] {
     }));
 }
 
+function buildLegacyRegisterPath(user: string, key: string): `v1/${string}` {
+  const params = new URLSearchParams({ key, user });
+  return `v1/node/register?${params.toString()}`;
+}
+
 export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
   getNodes: async (userId) => {
     const { nodes } = await client.apiFetch<{ nodes: RawMachine[] }>(
@@ -153,12 +158,8 @@ export default defineApiEndpoints<NodeEndpoints>((client, apiKey) => ({
   registerNode: async (user, key) => {
     const { node } = await client.apiFetch<{ node: RawMachine }>(
       "POST",
-      "v1/node/register",
+      buildLegacyRegisterPath(user, key),
       apiKey,
-      {
-        key,
-        user,
-      },
     );
 
     return normalizeTags(client, node);

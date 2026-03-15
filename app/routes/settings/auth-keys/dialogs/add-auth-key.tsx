@@ -1,3 +1,4 @@
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
@@ -75,6 +76,9 @@ export default function AddAuthKey({
     .map((t) => (t.startsWith("tag:") ? t : `tag:${t}`));
 
   const canSubmit = tagOnly ? parsedTags.length > 0 : userId != null;
+  const createdCommand = createdKey
+    ? `tailscale up --login-server=${url} --auth-key ${createdKey}`
+    : null;
 
   return (
     <Dialog
@@ -108,10 +112,27 @@ export default function AddAuthKey({
               Copy
             </Button>
           </div>
+          <div className="mt-4 flex justify-center rounded-2xl bg-white p-4">
+            <QRCodeSVG size={220} value={createdKey} />
+          </div>
           <Dialog.Text className="mt-4 text-sm">To register a device with this key:</Dialog.Text>
           <Code isCopyable className="mt-1 block text-sm">
-            {`tailscale up --login-server=${url} --authkey ${createdKey}`}
+            {createdCommand ?? ""}
           </Code>
+          <div className="mt-3 flex gap-2">
+            <Button
+              onPress={async () => {
+                if (!createdCommand) {
+                  return;
+                }
+                await navigator.clipboard.writeText(createdCommand);
+                toast("Copied command to clipboard");
+              }}
+              variant="light"
+            >
+              Copy command
+            </Button>
+          </div>
         </Dialog.Panel>
       ) : (
         <Dialog.Panel

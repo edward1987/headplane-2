@@ -19,30 +19,37 @@ export interface NewMachineProps {
 
 export default function NewMachine(data: NewMachineProps) {
   const [pushDialog, setPushDialog] = useState(false);
-  const [mkey, setMkey] = useState("");
+  const [authId, setAuthId] = useState("");
   const navigate = useNavigate();
 
-  const isMkeyInvalid = mkey.length > 0 && mkey.length !== 24;
+  const trimmedAuthId = authId.trim();
+  const normalizedAuthId =
+    trimmedAuthId.match(/(hskey-authreq-[A-Za-z0-9_-]{24})$/)?.[1] ??
+    trimmedAuthId.match(/([A-Za-z0-9_-]{24})$/)?.[1] ??
+    "";
+  const isAuthIdInvalid = authId.length > 0 && normalizedAuthId.length === 0;
 
   return (
     <>
       <Dialog isOpen={pushDialog} onOpenChange={setPushDialog}>
-        <Dialog.Panel isDisabled={mkey.length !== 24}>
-          <Dialog.Title>Register Machine Key</Dialog.Title>
+        <Dialog.Panel isDisabled={normalizedAuthId.length === 0}>
+          <Dialog.Title>Register device from auth code</Dialog.Title>
           <Dialog.Text className="mb-4">
-            The machine key is given when you run{" "}
+            Paste the Headscale registration URL or auth request ID shown after you run{" "}
             <Code isCopyable>tailscale up --login-server={data.server}</Code> on your device.
           </Dialog.Text>
           <input name="action_id" type="hidden" value="register" />
+          <input name="register_key" type="hidden" value={normalizedAuthId} />
           <Input
-            errorMessage="Machine key must be exactly 24 characters"
-            isInvalid={isMkeyInvalid}
+            description="Accepts the full /register/ URL, the full hskey-authreq-... value, or the 24-character code shown by the client."
+            errorMessage="Enter a valid Headscale auth request ID."
+            isInvalid={isAuthIdInvalid}
             isRequired
-            label="Machine Key"
-            name="register_key"
-            onChange={setMkey}
-            placeholder="AbCd..."
+            label="Registration code"
+            onChange={setAuthId}
+            placeholder="hskey-authreq-... or 24-character code"
             validationBehavior="native"
+            value={authId}
           />
           <Select isRequired label="Owner" name="user" placeholder="Select a user">
             {data.users.map((user) => (
@@ -62,7 +69,7 @@ export default function NewMachine(data: NewMachineProps) {
           >
             <div className="flex items-center gap-x-3">
               <Computer className="w-4" />
-              Register Machine Key
+              Register from auth code
             </div>
           </MenuItem>
           <MenuItem

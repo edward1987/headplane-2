@@ -39,20 +39,9 @@ export interface AutoApproverRoutes {
   [route: string]: string[];
 }
 
-export interface AutoApproverExitNodes {
-  [scope: string]: string[];
-}
-
-export interface AutoApproverDerp {
-  [scope: string]: string[];
-}
-
 export interface AutoApprovers {
   routes?: AutoApproverRoutes;
-  exitNode?: AutoApproverExitNodes;
-  exitNodeDestinations?: AutoApproverExitNodes;
-  derp?: AutoApproverDerp;
-  exitNodes?: { acceptExitNodes: string[] };
+  exitNode?: string[];
 }
 
 export interface NodeAttr {
@@ -205,7 +194,7 @@ export function parseAclPolicy(policyText: string): ParsedAclData {
         accept: test.accept ?? [],
         deny: test.deny ?? [],
       })),
-      autoApprovers: policy.autoApprovers ?? {},
+      autoApprovers: normalizeAutoApprovers(policy.autoApprovers),
       nodeAttrs: normalizeNodeAttrs(policy.nodeAttrs ?? []),
       ipsets: Object.entries(policy.ipsets ?? {}).map(([name, cidr]) => ({ name, cidr })),
       extras,
@@ -290,8 +279,9 @@ export function serializeAclPolicy(data: ParsedAclData): string {
     delete policy.tests;
   }
 
-  if (hasMeaningfulAutoApprovers(data.autoApprovers)) {
-    policy.autoApprovers = data.autoApprovers;
+  const autoApprovers = normalizeAutoApprovers(data.autoApprovers);
+  if (hasMeaningfulAutoApprovers(autoApprovers)) {
+    policy.autoApprovers = autoApprovers;
   } else {
     delete policy.autoApprovers;
   }
@@ -368,9 +358,33 @@ function uniq(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
+function normalizeAutoApprovers(autoApprovers: AutoApprovers | undefined): AutoApprovers {
+  if (!autoApprovers) {
+    return {};
+  }
+
+  const normalized: AutoApprovers = {};
+
+  if (autoApprovers.routes) {
+    normalized.routes = Object.fromEntries(
+      Object.entries(autoApprovers.routes)
+        .map(([route, principals]) => [route.trim(), uniq(principals)] as const)
+        .filter(([route, principals]) => route.length > 0 && principals.length > 0),
+    );
+  }
+
+  const exitNode = autoApprovers.exitNode ?? [];
+  const normalizedExitNode = uniq(exitNode);
+  if (normalizedExitNode.length > 0) {
+    normalized.exitNode = normalizedExitNode;
+  }
+
+  return normalized;
+}
+
 function hasMeaningfulAutoApprovers(autoApprovers: AutoApprovers) {
-  return Object.values(autoApprovers).some((value) => {
-    if (!value) return false;
-    return Object.values(value).some((items) => Array.isArray(items) && items.length > 0);
-  });
+  return Boolean(
+    (autoApprovers.routes && Object.keys(autoApprovers.routes).length > 0) ||
+    (autoApprovers.exitNode && autoApprovers.exitNode.length > 0),
+  );
 }

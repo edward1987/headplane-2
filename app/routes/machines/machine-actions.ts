@@ -6,6 +6,21 @@ import { normalizeTagName, parseAclPolicy, serializeAclPolicy } from "~/utils/ac
 
 import type { Route } from "./+types/machine";
 
+function extractAuthId(input: string): string | null {
+  const trimmed = input.trim();
+  const fullAuthId = trimmed.match(/(hskey-authreq-[A-Za-z0-9_-]{24})$/)?.[1];
+  if (fullAuthId) {
+    return fullAuthId;
+  }
+
+  const shortAuthId = trimmed.match(/([A-Za-z0-9_-]{24})$/)?.[1];
+  if (shortAuthId) {
+    return `hskey-authreq-${shortAuthId}`;
+  }
+
+  return null;
+}
+
 export async function machineAction({ request, context }: Route.ActionArgs) {
   const principal = await context.auth.require(request);
 
@@ -36,6 +51,13 @@ export async function machineAction({ request, context }: Route.ActionArgs) {
       });
     }
 
+    const authId = extractAuthId(registrationKey);
+    if (!authId) {
+      throw data("Invalid auth request ID.", {
+        status: 400,
+      });
+    }
+
     const user = formData.get("user")?.toString();
     if (!user) {
       throw data("Missing `user` in the form data.", {
@@ -43,7 +65,7 @@ export async function machineAction({ request, context }: Route.ActionArgs) {
       });
     }
 
-    const node = await api.registerNode(user, registrationKey);
+    const node = await api.authRegister(user, authId);
     return redirect(`/machines/${node.id}`);
   }
 
@@ -107,22 +129,40 @@ export async function machineAction({ request, context }: Route.ActionArgs) {
       if (context.auth.can(principal, Capabilities.write_policy) && node.user?.name) {
         const policyResult = await api.getPolicy().catch(() => null);
         if (policyResult) {
-          const parsed = parseAclPolicy(policyResult.policy);
-          const knownTags = new Set(
-            parsed.tagOwners.map((tagOwner) => normalizeTagName(tagOwner.tag)).filter(Boolean),
-          );
-          const missingTags = normalizedTags.filter((tag) => !knownTags.has(tag));
+          try {
+            const parsed = parseAclPolicy(policyResult.policy);
+            const knownTags = new Set(
+              parsed.tagOwners.map((tagOwner) => normalizeTagName(tagOwner.tag)).filter(Boolean),
+            );
+            const missingTags = normalizedTags.filter((tag) => !knownTags.has(tag));
 
-          if (missingTags.length > 0) {
-            parsed.tagOwners = [
-              ...parsed.tagOwners,
-              ...missingTags.map((tag) => ({
-                owners: [node.user!.name],
-                tag,
-              })),
-            ];
+            if (missingTags.length > 0) {
+              parsed.tagOwners = [
+                ...parsed.tagOwners,
+                ...missingTags.map((tag) => ({
+                  owners: [node.user!.name],
+                  tag,
+                })),
+              ];
 
-            await api.setPolicy(serializeAclPolicy(parsed));
+              await api.setPolicy(serializeAclPolicy(parsed));
+            }
+          } catch (error) {
+            if (isDataWithApiError(error)) {
+              const message =
+                typeof error.data.data?.message === "string"
+                  ? error.data.data.message
+                  : "Headscale rejected the ACL policy update.";
+              return data(
+                {
+                  success: false as const,
+                  error: `Could not update the ACL policy before tagging this machine: ${message}`,
+                },
+                { status: 400 },
+              );
+            }
+
+            throw error;
           }
         }
       }

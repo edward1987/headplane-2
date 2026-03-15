@@ -255,7 +255,7 @@ export default function Page({
             if (!key.user) {
               return (
                 <TableList.Item key={key.id}>
-                  <AuthKeyRow authKey={key} user={null} />
+                  <AuthKeyRow authKey={key} url={url} user={null} />
                 </TableList.Item>
               );
             }
@@ -269,7 +269,7 @@ export default function Page({
 
             return (
               <TableList.Item key={key.id}>
-                <AuthKeyRow authKey={key} user={user} />
+                <AuthKeyRow authKey={key} url={url} user={user} />
               </TableList.Item>
             );
           })

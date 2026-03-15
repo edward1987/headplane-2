@@ -1,3 +1,4 @@
+import { isDataWithApiError } from "~/server/headscale/api/error-client";
 import type { Machine } from "~/types";
 
 import { defineApiEndpoints } from "../factory";
@@ -8,14 +9,47 @@ interface AuthEndpoints {
   authReject(authId: string): Promise<void>;
 }
 
+function toLegacyRegistrationKey(authId: string): string {
+  const match = authId.match(/hskey-authreq-([A-Za-z0-9_-]{24})$/);
+  return match?.[1] ?? authId;
+}
+
+function buildLegacyRegisterPath(user: string, key: string): `v1/${string}` {
+  const params = new URLSearchParams({ key, user });
+  return `v1/node/register?${params.toString()}`;
+}
+
 export default defineApiEndpoints<AuthEndpoints>((client, apiKey) => ({
   authRegister: async (user, authId) => {
-    const { node } = await client.apiFetch<{ node: Machine }>("POST", "v1/auth/register", apiKey, {
-      authId,
-      user,
-    });
+    try {
+      const { node } = await client.apiFetch<{ node: Machine }>(
+        "POST",
+        "v1/auth/register",
+        apiKey,
+        {
+          authId,
+          user,
+        },
+      );
 
-    return node;
+      return node;
+    } catch (error) {
+      if (
+        isDataWithApiError(error) &&
+        error.data.requestUrl === "POST v1/auth/register" &&
+        error.data.statusCode === 404
+      ) {
+        const { node } = await client.apiFetch<{ node: Machine }>(
+          "POST",
+          buildLegacyRegisterPath(user, toLegacyRegistrationKey(authId)),
+          apiKey,
+        );
+
+        return node;
+      }
+
+      throw error;
+    }
   },
 
   authApprove: async (authId) => {

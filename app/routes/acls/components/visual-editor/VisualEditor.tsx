@@ -31,7 +31,7 @@ interface VisualEditorProps {
   isDisabled?: boolean;
 }
 
-type AutoApproverSection = "routes" | "exitNode" | "exitNodeDestinations" | "derp";
+type AutoApproverSection = "routes";
 
 export function VisualEditor({ policy, onChange, users, nodes, isDisabled }: VisualEditorProps) {
   const [parsed, setParsed] = useState<ParsedAclData>(() => parseAclPolicy(policy));
@@ -903,24 +903,6 @@ function AutoApproversSection({
       description: "Auto-approve subnet routes announced by matching principals.",
       suggestions: routeSuggestions,
     },
-    {
-      id: "exitNode",
-      title: "Exit node access",
-      description: "Map principals or scopes to users allowed to self-approve exit nodes.",
-      suggestions: principalSuggestions,
-    },
-    {
-      id: "exitNodeDestinations",
-      title: "Exit destinations",
-      description: "Granular exit-node destination scopes for specific actors.",
-      suggestions: routeSuggestions,
-    },
-    {
-      id: "derp",
-      title: "DERP approvals",
-      description: "Advanced DERP approvals for matching scopes.",
-      suggestions: principalSuggestions,
-    },
   ];
 
   return (
@@ -996,7 +978,7 @@ function AutoApproversSection({
                             [section.id]: Object.fromEntries(updated),
                           });
                         }}
-                        placeholder={section.id === "routes" ? "10.0.0.0/24" : "tag:exit"}
+                        placeholder="10.0.0.0/24"
                         suggestions={section.suggestions}
                         value={key}
                       />
@@ -1034,24 +1016,24 @@ function AutoApproversSection({
         <div className="rounded-3xl border border-mist-200 bg-mist-50/70 p-4 dark:border-mist-800 dark:bg-mist-950/40">
           <div className="mb-3">
             <h4 className="text-sm font-semibold text-mist-950 dark:text-mist-50">
-              Legacy exit node approvals
+              Exit node approvals
             </h4>
             <p className="mt-1 text-xs text-mist-500 dark:text-mist-400">
-              Older documents may still use the legacy exitNodes.acceptExitNodes shape.
+              Principals listed here can self-approve exit node usage.
             </p>
           </div>
           <AclTokenField
             isDisabled={isDisabled}
-            label="acceptExitNodes"
+            label="exitNode"
             onChange={(value) =>
               onChange({
                 ...autoApprovers,
-                exitNodes: { acceptExitNodes: value },
+                exitNode: value,
               })
             }
             placeholder="group:netops"
             suggestions={principalSuggestions}
-            value={autoApprovers.exitNodes?.acceptExitNodes ?? []}
+            value={autoApprovers.exitNode ?? []}
           />
         </div>
       </div>
